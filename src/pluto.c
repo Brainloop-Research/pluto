@@ -42,7 +42,7 @@ static void pt_ctx_push_chunk(struct pt_ctx_t *const ctx) {
 }
 
 void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const size_t chunk_size) {
-    if (chunk_size && chunk_size < (1 << 20))
+    if (chunk_size && chunk_size < (1<<20))
         pt_log_error("Chunk size very small, set it to >= 1MiB for best performance");
     memset(ctx, 0, sizeof(*ctx));
     ctx->alloc = alloc ? alloc : &pt_default_allocator;
@@ -55,7 +55,7 @@ void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const 
 
 void *pt_ctx_pool_alloc(struct pt_ctx_t *const ctx, const size_t len) {
     pt_assert2(len && len <= PTRDIFF_MAX);
-    if (ctx->delta - ctx->chunks[ctx->chunks_len - 1] < (ptrdiff_t)len) {
+    if (ctx->delta - ctx->chunks[ctx->chunks_len - 1] < (ptrdiff_t)len) { // Possible improvement: Search for a fitting rest in the chunks
         pt_ctx_push_chunk(ctx);
         pt_log_error(
             "Pool chunk exhausted - requested %.03fKiB\n"
@@ -77,12 +77,12 @@ void pt_ctx_free(struct pt_ctx_t *const ctx) {
     memset(ctx, 0, sizeof(*ctx));
 }
 
-pt_tensor_t *pt_tensor_new(const pt_dim_t *const dims, const pt_dim_t num_dims) {
+struct pt_tensor_t *pt_tensor_new(const pt_dim_t *const dims, const pt_dim_t num_dims) {
     assert(num_dims > 0 && num_dims <= PT_MAX_DIMS);
     pt_dim_t bytes = sizeof(float);
     for (pt_dim_t i = 0; i < num_dims; ++i) // Accumulate the total data size in bytes
         bytes *= dims[i];
-    pt_tensor_t *tensor = malloc(sizeof(*tensor) + bytes); // Allocate memory for the tensor + data
+    struct pt_tensor_t *tensor = malloc(sizeof(*tensor) + bytes); // Allocate memory for the tensor + data
     memset(tensor, 0, sizeof(*tensor));
     tensor->size = bytes;
     tensor->data = (float *)(tensor + 1); // Set the data pointer to the end of the tensor structure, where the data follows
