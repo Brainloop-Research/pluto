@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,12 +73,19 @@ extern "C" {
 #define pt_static_assert(expr) extern void pt_assert_name(__LINE__)(bool STATIC_ASSERTION_FAILED[((expr)?1:-1)])
 extern PT_EXPORT PT_NORET PT_COLDPROC void pt_panic(const char *msg, ...); // Panic function
 
-/* Assert for debug and release builds. */
 #define pt_assert(expr, msg, ...) \
     if (pt_unlikely(!(expr))) { \
         pt_panic("%s:%d Assertion failed: " #expr " <- " msg, __FILE__, __LINE__, ## __VA_ARGS__);\
     }
 #define pt_assert2(expr) pt_assert(expr, "")
+
+#ifdef NDEBUG
+#   define pt_dassert(expr, msg, ...)
+#   define pt_dassert2(expr)
+#else
+#   define pt_dassert(expr, msg, ...) pt_assert(expr, msg, ## __VA_ARGS__)
+#   define pt_dassert2(expr) pt_assert2(expr)
+#endif
 
 #ifdef PT_ENABLE_LOGGING
 #   define pt_log_info(msg, ...) fprintf(stdout,  "[pluto] " PT_SRC_NAME " " msg "\n", ## __VA_ARGS__)
@@ -94,12 +102,12 @@ extern PT_EXPORT void *pt_default_allocator(void *blk, size_t len);
 #define PT_CTX_CHUNKS_CAP 16
 
 struct pt_ctx_t { // Structure to represent a context
-    pt_alloc_proc_t alloc; // Allocator function
+    pt_alloc_proc_t alloc; // Allocator function - allows to plug in custom allocators
     size_t chunk_size;     // Size of each chunk
     uint8_t **chunks;    // Allocated chunks
     size_t chunks_len;
     size_t chunks_cap;
-    uint8_t *delta;
+    uint8_t *delta;      // Pointer to the next free byte within the current chunk - we allocate downwards
 };
 
 extern PT_EXPORT void pt_ctx_init(struct pt_ctx_t *ctx, pt_alloc_proc_t alloc, size_t chunk_size);
@@ -110,17 +118,21 @@ typedef int64_t pt_dim_t;
 
 #define PT_MAX_DIMS 4
 
-typedef struct pt_tensor_t {        // Structure to represent a tensor
+struct pt_tensor_t {        // Structure to represent a tensor
     float *data;                    // Pointer to the data
     pt_dim_t dims[PT_MAX_DIMS];     // Size of each dimension
     pt_dim_t strides[PT_MAX_DIMS];  // Strides for each dimension
     pt_dim_t size;                  // Total size of data in bytes
-} pt_tensor_t;
+};
 
 extern PT_EXPORT struct pt_tensor_t *pt_tensor_new(
     const pt_dim_t *dims,
     pt_dim_t num_dims
 );
+
+extern PT_EXPORT bool pt_tensor_is_scalar(const struct pt_tensor_t *tensor);
+extern PT_EXPORT bool pt_tensor_is_vector(const struct pt_tensor_t *tensor);
+extern PT_EXPORT bool pt_tensor_is_matrix(const struct pt_tensor_t *tensor);
 
 #ifdef __cplusplus
 }
