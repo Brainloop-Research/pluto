@@ -10,6 +10,10 @@ option(PLUTO_BUILD_TESTS "Build tests" ON)
 
 file(GLOB_RECURSE SOURCES include/*.h src/*.c)
 
+if (NOT WIN32)
+    add_compile_options(-gdwarf-4)
+endif()
+
 add_library(pluto STATIC ${SOURCES})
 target_include_directories(pluto PUBLIC include/pluto)
 target_compile_options(
