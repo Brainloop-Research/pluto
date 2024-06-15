@@ -99,15 +99,19 @@ typedef void *(*pt_alloc_proc_t)(void *blk, size_t len);
 extern PT_EXPORT void *pt_default_allocator(void *blk, size_t len);
 
 #define PT_CTX_CHUNK_SIZE ((size_t)1<<20) // 1 MiB
-#define PT_CTX_CHUNKS_CAP 16
+#define PT_CTX_CHUNKS_CAP 16 // Initial capacity of chunks
+#define PT_CTX_ALLOC_ATTEMPTS_LIM 8 // Limit of allocation attempts before we increase the chunk size
 
-struct pt_ctx_t { // Structure to represent a context
-    pt_alloc_proc_t alloc; // Allocator function - allows to plug in custom allocators
-    size_t chunk_size;     // Size of each chunk
-    uint8_t **chunks;    // Allocated chunks
-    size_t chunks_len;
-    size_t chunks_cap;
-    uint8_t *delta;      // Pointer to the next free byte within the current chunk - we allocate downwards
+struct pt_ctx_t {           // Structure to represent a context
+    pt_alloc_proc_t alloc;  // Allocator function - allows to plug in custom allocators
+    size_t chunk_size;      // Size of each chunk
+    uint8_t **chunks;       // Allocated chunks
+    size_t chunks_len;      // Number of allocated chunks
+    size_t chunks_cap;      // Capacity of allocated chunks
+    uint8_t *delta;         // Pointer to the next free byte within the current chunk - we allocate downwards
+    size_t alloc_acc;       // Number of allocations
+    size_t mapped_total;    // Total (virtual) allocated memory by 'alloc' function
+    size_t alloc_total;     // Total allocated memory by 'pt_ctx_pool_alloc'
 };
 
 extern PT_EXPORT void pt_ctx_init(struct pt_ctx_t *ctx, pt_alloc_proc_t alloc, size_t chunk_size);
@@ -118,17 +122,15 @@ typedef int64_t pt_dim_t;
 
 #define PT_MAX_DIMS 4
 
-struct pt_tensor_t {        // Structure to represent a tensor
+struct pt_tensor_t {                // Structure to represent a tensor
+    struct pt_ctx_t *ctx;           // Context host
     float *data;                    // Pointer to the data
     pt_dim_t dims[PT_MAX_DIMS];     // Size of each dimension
     pt_dim_t strides[PT_MAX_DIMS];  // Strides for each dimension
     pt_dim_t size;                  // Total size of data in bytes
 };
 
-extern PT_EXPORT struct pt_tensor_t *pt_tensor_new(
-    const pt_dim_t *dims,
-    pt_dim_t num_dims
-);
+extern PT_EXPORT struct pt_tensor_t *pt_tensor_new(struct pt_ctx_t *ctx, const pt_dim_t *dims, pt_dim_t num_dims);
 
 extern PT_EXPORT bool pt_tensor_is_scalar(const struct pt_tensor_t *tensor);
 extern PT_EXPORT bool pt_tensor_is_vector(const struct pt_tensor_t *tensor);
