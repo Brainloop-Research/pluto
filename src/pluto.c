@@ -82,7 +82,6 @@ static void pt_query_cpu_name(struct pt_ctx_t *const ctx) {
 #elif !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
     uint32_t regs[4];
     pt_assert2(sizeof(ctx->cpu_name) >= sizeof(regs));
-    pt_cpuid(&regs, 0);
     char *const name = ctx->cpu_name;
     pt_cpuid(&regs, 0x80000002);
     for (int i = 0; i < 4; ++i)
