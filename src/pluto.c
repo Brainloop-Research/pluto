@@ -7,6 +7,11 @@
 #include <string.h>
 #include <stdarg.h>
 
+#ifdef __APPLE__
+#   include <sys/sysctl.h>
+#   include <sys/types.h>
+#endif
+
 void pt_panic(const char *const msg, ...) {
     fprintf(stderr, "%s", PT_CCRED);
     va_list args;
@@ -43,6 +48,20 @@ static void pt_ctx_push_chunk(struct pt_ctx_t *const ctx) {
     ctx->delta = chunk + ctx->chunk_size;
 }
 
+static void pt_query_cpu_name(struct pt_ctx_t *const ctx) {
+#if defined(__APPLE__) && defined(__aarch64__)
+    const char* const id = "machdep.cpu.brand_string";
+    size_t len;
+    if (pt_unlikely(sysctlbyname(id, NULL, &len, NULL, 0) != 0)) return;
+    char *const scratch = alloca(len+1);
+    if (pt_unlikely(sysctlbyname(id, scratch, &len, NULL, 0) != 0)) return;
+    scratch[len] = '\0';
+    strncpy(ctx->cpu_name, scratch, sizeof(ctx->cpu_name));
+#else
+    strcpy(ctx->cpu_name, "Unknown");
+#endif
+}
+
 void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const size_t chunk_size) {
     if (chunk_size > 1 && chunk_size < (1<<20))
         pt_log_error("Chunk size very small, set it to >= 1MiB for best performance");
@@ -52,6 +71,8 @@ void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const 
     ctx->chunks_cap = PT_CTX_CHUNKS_CAP;
     ctx->chunks = (*ctx->alloc)(NULL, ctx->chunks_cap * sizeof(*ctx->chunks));
     pt_ctx_push_chunk(ctx);
+    pt_query_cpu_name(ctx);
+    printf("CPU: %s\n", ctx->cpu_name);
 }
 
 void *pt_ctx_pool_alloc(struct pt_ctx_t *const ctx, const size_t len) {

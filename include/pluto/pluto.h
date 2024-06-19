@@ -100,7 +100,6 @@ extern PT_EXPORT void *pt_default_allocator(void *blk, size_t len);
 
 #define PT_CTX_CHUNK_SIZE ((size_t)1<<20) // 1 MiB
 #define PT_CTX_CHUNKS_CAP 16 // Initial capacity of chunks
-#define PT_CTX_ALLOC_ATTEMPTS_LIM 8 // Limit of allocation attempts before we increase the chunk size
 
 struct pt_ctx_t {           // Structure to represent a context
     pt_alloc_proc_t alloc;  // Allocator function - allows to plug in custom allocators
@@ -112,6 +111,7 @@ struct pt_ctx_t {           // Structure to represent a context
     size_t alloc_acc;       // Number of allocations
     size_t mapped_total;    // Total (virtual) allocated memory by 'alloc' function
     size_t alloc_total;     // Total allocated memory by 'pt_ctx_pool_alloc'
+    char cpu_name[128];     // CPU name
 };
 
 extern PT_EXPORT void pt_ctx_init(struct pt_ctx_t *ctx, pt_alloc_proc_t alloc, size_t chunk_size);
