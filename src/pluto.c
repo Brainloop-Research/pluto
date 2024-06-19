@@ -10,6 +10,10 @@
 #ifdef __APPLE__
 #   include <sys/sysctl.h>
 #   include <sys/types.h>
+#elif defined(__x86_64__) && !defined(_WIN32)
+#   include <cpuid.h>
+#elif defined(_MSC_VER)
+#   include <intrin.h>
 #endif
 
 void pt_panic(const char *const msg, ...) {
@@ -48,6 +52,24 @@ static void pt_ctx_push_chunk(struct pt_ctx_t *const ctx) {
     ctx->delta = chunk + ctx->chunk_size;
 }
 
+#if !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
+static inline void pt_cpuid(uint32_t (*const o)[4], const uint32_t x) {
+#ifdef _MSC_VER
+    __cpuidex(out, x, 0);
+#elif defined(__cpuid_count)
+    __cpuid_count(x, 0, (*o)[0], (*o)[1], (*o)[2], (*o)[3]);
+#else
+    __asm__ __volatile__(
+        "xchgq  %%rbx,%q1\n"
+        "cpuid\n"
+        "xchgq  %%rbx,%q1"
+        : "=a"((*o)[0]), "=r" ((*o)[1]), "=c"((*o)[2]), "=d"((*o)[3])
+        : "0"(x), "2"(0)
+    );
+#endif
+}
+#endif
+
 static void pt_query_cpu_name(struct pt_ctx_t *const ctx) {
 #if defined(__APPLE__) && defined(__aarch64__)
     const char* const id = "machdep.cpu.brand_string";
@@ -57,6 +79,20 @@ static void pt_query_cpu_name(struct pt_ctx_t *const ctx) {
     if (pt_unlikely(sysctlbyname(id, scratch, &len, NULL, 0) != 0)) return;
     scratch[len] = '\0';
     strncpy(ctx->cpu_name, scratch, sizeof(ctx->cpu_name));
+#elif !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
+    uint32_t regs[4];
+    pt_assert2(sizeof(ctx->cpu_name) >= sizeof(regs));
+    pt_cpuid(&regs, 0);
+    char *const name = ctx->cpu_name;
+    pt_cpuid(&regs, 0x80000002);
+    for (int i = 0; i < 4; ++i)
+        *(uint32_t *)(name+(i<<2)) = regs[i];
+    pt_cpuid(&regs, 0x80000003);
+    for (int i = 0; i < 4; ++i)
+        *(uint32_t *)(name+(i<<2)+16) = regs[i];
+    pt_cpuid(&regs, 0x80000004);
+    for (int i = 0; i < 4; ++i)
+        *(uint32_t *)(name+(i<<2)+32) = regs[i];
 #else
     strcpy(ctx->cpu_name, "Unknown");
 #endif
