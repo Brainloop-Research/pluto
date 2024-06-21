@@ -70,15 +70,31 @@ static inline void pt_cpuid(uint32_t (*const o)[4], const uint32_t x) {
 }
 #endif
 
+#if defined(__APPLE__) && defined(__aarch64__)
+static bool pt_sysctl(const char* const id, char *const o, const size_t osz) {
+    size_t len;
+    if (pt_unlikely(sysctlbyname(id, NULL, &len, NULL, 0) != 0))
+        return false;
+    char *const scratch = alloca(len+1);
+    if (pt_unlikely(sysctlbyname(id, scratch, &len, NULL, 0) != 0))
+        return false;
+    scratch[len] = '\0';
+    snprintf(o, osz, "%s", scratch);
+    return true;
+}
+#endif
+
+static void pt_query_os_name(struct pt_ctx_t *const ctx) {
+#if defined(__APPLE__) && defined(__aarch64__)
+    pt_sysctl("kern.version", ctx->os_name, sizeof(ctx->os_name));
+#elif !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
+    // TODO: Implement OS name query for x86_64
+#endif
+}
+
 static void pt_query_cpu_name(struct pt_ctx_t *const ctx) {
 #if defined(__APPLE__) && defined(__aarch64__)
-    const char* const id = "machdep.cpu.brand_string";
-    size_t len;
-    if (pt_unlikely(sysctlbyname(id, NULL, &len, NULL, 0) != 0)) return;
-    char *const scratch = alloca(len+1);
-    if (pt_unlikely(sysctlbyname(id, scratch, &len, NULL, 0) != 0)) return;
-    scratch[len] = '\0';
-    strncpy(ctx->cpu_name, scratch, sizeof(ctx->cpu_name));
+    pt_sysctl("machdep.cpu.brand_string", ctx->cpu_name, sizeof(ctx->cpu_name));
 #elif !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
     uint32_t regs[4];
     pt_assert2(sizeof(ctx->cpu_name) >= sizeof(regs));
@@ -106,8 +122,11 @@ void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const 
     ctx->chunks_cap = PT_CTX_CHUNKS_CAP;
     ctx->chunks = (*ctx->alloc)(NULL, ctx->chunks_cap * sizeof(*ctx->chunks));
     pt_ctx_push_chunk(ctx);
+    pt_query_os_name(ctx);
     pt_query_cpu_name(ctx);
+    printf("OS: %s\n", ctx->os_name);
     printf("CPU: %s\n", ctx->cpu_name);
+    fflush(stdout);
 }
 
 void *pt_ctx_pool_alloc(struct pt_ctx_t *const ctx, const size_t len) {

@@ -111,6 +111,7 @@ struct pt_ctx_t {           // Structure to represent a context
     size_t alloc_acc;       // Number of allocations
     size_t mapped_total;    // Total (virtual) allocated memory by 'alloc' function
     size_t alloc_total;     // Total allocated memory by 'pt_ctx_pool_alloc'
+    char os_name[128];      // OS name
     char cpu_name[128];     // CPU name
 };
 
