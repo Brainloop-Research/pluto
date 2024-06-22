@@ -7,6 +7,15 @@
 #include <string.h>
 #include <stdarg.h>
 
+#ifdef __APPLE__
+#   include <sys/sysctl.h>
+#   include <sys/types.h>
+#elif defined(__x86_64__) && !defined(_WIN32)
+#   include <cpuid.h>
+#elif defined(_MSC_VER)
+#   include <intrin.h>
+#endif
+
 void pt_panic(const char *const msg, ...) {
     fprintf(stderr, "%s", PT_CCRED);
     va_list args;
@@ -43,6 +52,67 @@ static void pt_ctx_push_chunk(struct pt_ctx_t *const ctx) {
     ctx->delta = chunk + ctx->chunk_size;
 }
 
+#if !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
+static inline void pt_cpuid(uint32_t (*const o)[4], const uint32_t x) {
+#ifdef _MSC_VER
+    __cpuidex(out, x, 0);
+#elif defined(__cpuid_count)
+    __cpuid_count(x, 0, (*o)[0], (*o)[1], (*o)[2], (*o)[3]);
+#else
+    __asm__ __volatile__(
+        "xchgq  %%rbx,%q1\n"
+        "cpuid\n"
+        "xchgq  %%rbx,%q1"
+        : "=a"((*o)[0]), "=r" ((*o)[1]), "=c"((*o)[2]), "=d"((*o)[3])
+        : "0"(x), "2"(0)
+    );
+#endif
+}
+#endif
+
+#if defined(__APPLE__) && defined(__aarch64__)
+static bool pt_sysctl(const char* const id, char *const o, const size_t osz) {
+    size_t len;
+    if (pt_unlikely(sysctlbyname(id, NULL, &len, NULL, 0) != 0))
+        return false;
+    char *const scratch = alloca(len+1);
+    if (pt_unlikely(sysctlbyname(id, scratch, &len, NULL, 0) != 0))
+        return false;
+    scratch[len] = '\0';
+    snprintf(o, osz, "%s", scratch);
+    return true;
+}
+#endif
+
+static void pt_query_os_name(struct pt_ctx_t *const ctx) {
+#if defined(__APPLE__) && defined(__aarch64__)
+    pt_sysctl("kern.version", ctx->os_name, sizeof(ctx->os_name));
+#elif !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
+    // TODO: Implement OS name query for x86_64
+#endif
+}
+
+static void pt_query_cpu_name(struct pt_ctx_t *const ctx) {
+#if defined(__APPLE__) && defined(__aarch64__)
+    pt_sysctl("machdep.cpu.brand_string", ctx->cpu_name, sizeof(ctx->cpu_name));
+#elif !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
+    uint32_t regs[4];
+    pt_assert2(sizeof(ctx->cpu_name) >= sizeof(regs));
+    char *const name = ctx->cpu_name;
+    pt_cpuid(&regs, 0x80000002);
+    for (int i = 0; i < 4; ++i)
+        *(uint32_t *)(name+(i<<2)) = regs[i];
+    pt_cpuid(&regs, 0x80000003);
+    for (int i = 0; i < 4; ++i)
+        *(uint32_t *)(name+(i<<2)+16) = regs[i];
+    pt_cpuid(&regs, 0x80000004);
+    for (int i = 0; i < 4; ++i)
+        *(uint32_t *)(name+(i<<2)+32) = regs[i];
+#else
+    strcpy(ctx->cpu_name, "Unknown");
+#endif
+}
+
 void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const size_t chunk_size) {
     if (chunk_size > 1 && chunk_size < (1<<20))
         pt_log_error("Chunk size very small, set it to >= 1MiB for best performance");
@@ -52,6 +122,11 @@ void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const 
     ctx->chunks_cap = PT_CTX_CHUNKS_CAP;
     ctx->chunks = (*ctx->alloc)(NULL, ctx->chunks_cap * sizeof(*ctx->chunks));
     pt_ctx_push_chunk(ctx);
+    pt_query_os_name(ctx);
+    pt_query_cpu_name(ctx);
+    printf("OS: %s\n", ctx->os_name);
+    printf("CPU: %s\n", ctx->cpu_name);
+    fflush(stdout);
 }
 
 void *pt_ctx_pool_alloc(struct pt_ctx_t *const ctx, const size_t len) {
