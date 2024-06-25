@@ -43,6 +43,16 @@ void *pt_default_allocator(void *blk, const size_t len) {
     }
 }
 
+#define inject_enum(_, mnemonic, __, ___) mnemonic
+const char *const pt_opcode_mnemonic[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
+#undef inject_enum
+#define inject_enum(_, __, desc, ___) desc
+const char *const pt_opcode_desc[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
+#undef inject_enum
+#define inject_enum(_, __, ___, nargs) (255&nargs)
+const uint8_t pt_opcode_arg_count[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
+#undef inject_enum
+
 static void pt_ctx_push_chunk(struct pt_ctx_t *const ctx) {
     uint8_t *const chunk = (*ctx->alloc)(NULL, ctx->chunk_size);
     ctx->mapped_total += ctx->chunk_size;
@@ -89,6 +99,8 @@ static void pt_query_os_name(struct pt_ctx_t *const ctx) {
     pt_sysctl("kern.version", ctx->os_name, sizeof(ctx->os_name));
 #elif !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
     // TODO: Implement OS name query for x86_64
+#else
+    strcpy(ctx->os_name, "Unknown");
 #endif
 }
 
@@ -176,5 +188,42 @@ struct pt_tensor_t *pt_tensor_new(struct pt_ctx_t *ctx, const pt_dim_t *const di
     tensor->strides[0] = sizeof(*tensor->data);
     for (pt_dim_t i = 1; i < PT_MAX_DIMS; ++i) // Calculate strides for each dimension
         tensor->strides[i] = tensor->strides[i - 1] * tensor->dims[i - 1];
+    tensor->rank = num_dims;
     return tensor;
+}
+
+struct pt_tensor_t *pt_tensor_new_1d(struct pt_ctx_t *const ctx, const pt_dim_t d1) { return pt_tensor_new(ctx, (pt_dim_t[]){d1}, 1); }
+struct pt_tensor_t *pt_tensor_new_2d(struct pt_ctx_t *const ctx, const pt_dim_t d1, const pt_dim_t d2) { return pt_tensor_new(ctx, (pt_dim_t[]){d1, d2}, 2);}
+struct pt_tensor_t *pt_tensor_new_3d(struct pt_ctx_t *const ctx, const pt_dim_t d1, const pt_dim_t d2, const pt_dim_t d3) { return pt_tensor_new(ctx, (pt_dim_t[]){d1, d2, d3}, 3); }
+struct pt_tensor_t *pt_tensor_new_4d(struct pt_ctx_t *const ctx, const pt_dim_t d1, const pt_dim_t d2, const pt_dim_t d3, const pt_dim_t d4) { return pt_tensor_new(ctx, (pt_dim_t[]){d1, d2, d3, d4}, 4); }
+
+struct pt_tensor_t *pt_tensor_isomorphic(struct pt_ctx_t *const ctx, const struct pt_tensor_t *const tensor) {
+    struct pt_tensor_t *const iso = pt_tensor_new(ctx, tensor->dims, tensor->rank);
+    return iso;
+}
+
+struct pt_tensor_t *pt_tensor_clone(struct pt_ctx_t *const ctx, const struct pt_tensor_t *const tensor) {
+    struct pt_tensor_t *const iso = pt_tensor_isomorphic(ctx, tensor);
+    memcpy(tensor->data, iso->data, iso->size); // Copy data
+    return iso;
+}
+
+pt_dim_t pt_tensor_num_elems(const struct pt_tensor_t *const tensor) {
+    return tensor->size / (pt_dim_t)sizeof(float);
+}
+
+void pt_tensor_fill(struct pt_tensor_t *tensor, const float x) {
+    if (x == 0.0f) {
+        memset(tensor->data, 0, tensor->size);
+    } else {
+        for (pt_dim_t i = 0; i < pt_tensor_num_elems(tensor); ++i) {
+            tensor->data[i] = x;
+        }
+    }
+}
+
+void pt_tensor_fill_lambda(struct pt_tensor_t *tensor, float (*const f)(pt_dim_t)) {
+    for (pt_dim_t i = 0; i < pt_tensor_num_elems(tensor); ++i) {
+        tensor->data[i] = (*f)(i);
+    }
 }

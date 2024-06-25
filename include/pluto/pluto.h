@@ -101,6 +101,25 @@ extern PT_EXPORT void *pt_default_allocator(void *blk, size_t len);
 #define PT_CTX_CHUNK_SIZE ((size_t)1<<20) // 1 MiB
 #define PT_CTX_CHUNKS_CAP 16 // Initial capacity of chunks
 
+#define PT_OP_ARGMAX 2
+#define pt_opdef(_, __) /* Enum | Mnemonic | Op Desc | ArgCount */\
+    _(PT_OPC_NOP, "nop", "!", 0)__\
+    _(PT_OPC_ADD, "add", "+", 2)__\
+    _(PT_OPC_SUB, "sub", "-", 2)__\
+    _(PT_OPC_MUL, "mul", "*", 2)__\
+    _(PT_OPC_DIV, "div", "/", 2)
+
+enum pt_opcode_t {
+#define inject_enum(opc, _, __, ___) opc
+    pt_opdef(inject_enum, PT_ENUM_SEP)
+#undef inject_enum
+    , PT_OPC_MAX
+};
+
+extern PT_EXPORT const char *const pt_opcode_mnemonic[PT_OPC_MAX];
+extern PT_EXPORT const char *const pt_opcode_desc[PT_OPC_MAX];
+extern PT_EXPORT const uint8_t pt_opcode_arg_count[PT_OPC_MAX];
+
 struct pt_ctx_t {           // Structure to represent a context
     pt_alloc_proc_t alloc;  // Allocator function - allows to plug in custom allocators
     size_t chunk_size;      // Size of each chunk
@@ -120,7 +139,8 @@ extern PT_EXPORT void *pt_ctx_pool_alloc(struct pt_ctx_t *ctx, size_t len);
 extern PT_EXPORT void pt_ctx_free(struct pt_ctx_t *ctx);
 
 typedef int64_t pt_dim_t;
-
+#define PT_DIM_MAX INT64_MAX
+#define PT_DIM_MIN 0
 #define PT_MAX_DIMS 4
 
 struct pt_tensor_t {                // Structure to represent a tensor
@@ -128,10 +148,20 @@ struct pt_tensor_t {                // Structure to represent a tensor
     float *data;                    // Pointer to the data
     pt_dim_t dims[PT_MAX_DIMS];     // Size of each dimension
     pt_dim_t strides[PT_MAX_DIMS];  // Strides for each dimension
+    pt_dim_t rank;                  // Number of dimensions
     pt_dim_t size;                  // Total size of data in bytes
 };
 
 extern PT_EXPORT struct pt_tensor_t *pt_tensor_new(struct pt_ctx_t *ctx, const pt_dim_t *dims, pt_dim_t num_dims);
+extern PT_EXPORT struct pt_tensor_t *pt_tensor_new_1d(struct pt_ctx_t *ctx, pt_dim_t d1);
+extern PT_EXPORT struct pt_tensor_t *pt_tensor_new_2d(struct pt_ctx_t *ctx, pt_dim_t d1, pt_dim_t d2);
+extern PT_EXPORT struct pt_tensor_t *pt_tensor_new_3d(struct pt_ctx_t *ctx, pt_dim_t d1, pt_dim_t d2, pt_dim_t d3);
+extern PT_EXPORT struct pt_tensor_t *pt_tensor_new_4d(struct pt_ctx_t *ctx, pt_dim_t d1, pt_dim_t d2, pt_dim_t d3, pt_dim_t d4);
+extern PT_EXPORT struct pt_tensor_t *pt_tensor_isomorphic(struct pt_ctx_t *ctx, const struct pt_tensor_t *tensor);
+extern PT_EXPORT struct pt_tensor_t *pt_tensor_clone(struct pt_ctx_t *ctx, const struct pt_tensor_t *tensor);
+extern PT_EXPORT pt_dim_t pt_tensor_num_elems(const struct pt_tensor_t *tensor);
+extern PT_EXPORT void pt_tensor_fill(struct pt_tensor_t *tensor, float x);
+extern PT_EXPORT void pt_tensor_fill_lambda(struct pt_tensor_t *tensor, float (*f)(pt_dim_t i));
 
 extern PT_EXPORT bool pt_tensor_is_scalar(const struct pt_tensor_t *tensor);
 extern PT_EXPORT bool pt_tensor_is_vector(const struct pt_tensor_t *tensor);
