@@ -110,7 +110,7 @@ static void pt_query_os_name(struct pt_ctx_t *const ctx) {
 #endif
                 return;
             } else {
-                char line[512] = {0}, name[256] = {0};
+                char line[512] = {0}, name[64] = {0};
                 unsigned long major = 0, minor = 0, patch = 0, build = 0;
                 while (fgets(line, sizeof(line), rel)) {
                     if (strncmp(line, "DISTRIB_ID", sizeof("DISTRIB_ID")-1) == 0) {
@@ -138,7 +138,7 @@ static void pt_query_os_name(struct pt_ctx_t *const ctx) {
             }
         }
     }
-    char line[512] = {0}, name[256] = {0};
+    char line[512] = {0}, name[64] = {0};
     unsigned long major = 0, minor = 0, patch = 0, build = 0;
     while (fgets(line, sizeof(line), rel)) {
         if (!*name && (strncmp(line, "NAME", sizeof("NAME")-1) == 0 || strncmp(line, "PRETTY_NAME", sizeof("PRETTY_NAME")-1) == 0)) {

@@ -31,16 +31,8 @@ extern "C" {
 #   define PT_UNUSED __attribute__((unused))
 #	define pt_likely(x) __builtin_expect(!!(x), 1)
 #	define pt_unlikely(x) __builtin_expect(!!(x), 0)
-#   define pt_min(x, y) ({ \
-        __typeof__(x) _x = (x); \
-        __typeof__(y) _y = (y); \
-        _x < _y ? _x : _y; \
-    })
-#   define pt_max(x, y) ({ \
-        __typeof__(x) _x = (x); \
-        __typeof__(y) _y = (y); \
-        _x > _y ? _x : _y; \
-    })
+#   define pt_min(x, y) ((x) < (y) ? (x) : (y))
+#   define pt_max(x, y) ((x) > (y) ? (x) : (y))
 #else
 #	define PT_NORET __declspec(noreturn)
 #	define PT_ALIGN(x) __declspec(align(x))
