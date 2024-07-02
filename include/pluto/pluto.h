@@ -31,6 +31,16 @@ extern "C" {
 #   define PT_UNUSED __attribute__((unused))
 #	define pt_likely(x) __builtin_expect(!!(x), 1)
 #	define pt_unlikely(x) __builtin_expect(!!(x), 0)
+#   define pt_min(x, y) ({ \
+        __typeof__(x) _x = (x); \
+        __typeof__(y) _y = (y); \
+        _x < _y ? _x : _y; \
+    })
+#   define pt_max(x, y) ({ \
+        __typeof__(x) _x = (x); \
+        __typeof__(y) _y = (y); \
+        _x > _y ? _x : _y; \
+    })
 #else
 #	define PT_NORET __declspec(noreturn)
 #	define PT_ALIGN(x) __declspec(align(x))
@@ -43,6 +53,8 @@ extern "C" {
 #   define PT_UNUSED __declspec(unused)
 #	define pt_likely(x) (x)
 #	define pt_unlikely(x) (x)
+#   define pt_min(x, y) ((x) < (y) ? (x) : (y))
+#   define pt_max(x, y) ((x) > (y) ? (x) : (y))
 #endif
 
 #ifdef PT_EXPORT_DLL
@@ -100,6 +112,7 @@ extern PT_EXPORT void *pt_default_allocator(void *blk, size_t len);
 
 #define PT_CTX_CHUNK_SIZE ((size_t)1<<20) // 1 MiB
 #define PT_CTX_CHUNKS_CAP 16 // Initial capacity of chunks
+#define PT_CTX_POOL_LOG_ENABLE 0 // Enable logging for pool allocator
 
 #define PT_OP_ARGMAX 2
 #define pt_opdef(_, __) /* Enum | Mnemonic | Op Desc | ArgCount */\

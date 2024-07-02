@@ -24,6 +24,7 @@ target_compile_options(
     -Werror
     -pedantic
     -Wno-gnu-zero-variadic-macro-arguments
+    -Wno-gnu-statement-expression
 )
 
 if (PLUTO_BUILD_TESTS)
