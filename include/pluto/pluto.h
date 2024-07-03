@@ -155,7 +155,7 @@ typedef int64_t pt_dim_t;
 struct pt_tensor_t {                // Structure to represent a tensor
     struct pt_ctx_t *ctx;           // Context host
     float *data;                    // Pointer to the data
-    pt_dim_t dims[PT_MAX_DIMS];     // Size of each dimension
+    pt_dim_t shape[PT_MAX_DIMS];     // Size of each dimension
     pt_dim_t strides[PT_MAX_DIMS];  // Strides for each dimension
     pt_dim_t rank;                  // Number of dimensions
     pt_dim_t size;                  // Total size of data in bytes

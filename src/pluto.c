@@ -256,11 +256,11 @@ struct pt_tensor_t *pt_tensor_new(struct pt_ctx_t *ctx, const pt_dim_t *const di
     tensor->data = (float *)(tensor + 1); // Set the data pointer to the end of the tensor structure, where the data follows
     memset(tensor->data, 0, bytes); // Initialize the data to zero
     for (pt_dim_t i = 0; i < PT_MAX_DIMS; ++i) // Set dimensions and strides to identity to saturate out zero multiplication because: x * 0 = 0
-        tensor->dims[i] = 1;
-    memcpy(tensor->dims, dims, num_dims * sizeof(*dims));
+        tensor->shape[i] = 1;
+    memcpy(tensor->shape, dims, num_dims * sizeof(*dims));
     tensor->strides[0] = sizeof(*tensor->data);
     for (pt_dim_t i = 1; i < PT_MAX_DIMS; ++i) // Calculate strides for each dimension
-        tensor->strides[i] = tensor->strides[i - 1] * tensor->dims[i - 1];
+        tensor->strides[i] = tensor->strides[i - 1] * tensor->shape[i - 1];
     tensor->rank = num_dims;
     return tensor;
 }
@@ -271,13 +271,13 @@ struct pt_tensor_t *pt_tensor_new_3d(struct pt_ctx_t *const ctx, const pt_dim_t 
 struct pt_tensor_t *pt_tensor_new_4d(struct pt_ctx_t *const ctx, const pt_dim_t d1, const pt_dim_t d2, const pt_dim_t d3, const pt_dim_t d4) { return pt_tensor_new(ctx, (pt_dim_t[]){d1, d2, d3, d4}, 4); }
 
 struct pt_tensor_t *pt_tensor_isomorphic(struct pt_ctx_t *const ctx, const struct pt_tensor_t *const tensor) {
-    struct pt_tensor_t *const iso = pt_tensor_new(ctx, tensor->dims, tensor->rank);
+    struct pt_tensor_t *const iso = pt_tensor_new(ctx, tensor->shape, tensor->rank);
     return iso;
 }
 
 struct pt_tensor_t *pt_tensor_clone(struct pt_ctx_t *const ctx, const struct pt_tensor_t *const tensor) {
     struct pt_tensor_t *const iso = pt_tensor_isomorphic(ctx, tensor);
-    memcpy(tensor->data, iso->data, iso->size); // Copy data
+    memcpy(iso->data, tensor->data, tensor->size); // Copy data
     return iso;
 }
 
@@ -303,29 +303,29 @@ void pt_tensor_fill_fn(struct pt_tensor_t *const tensor, float (*const f)(pt_dim
 
 bool pt_tensor_is_scalar(const struct pt_tensor_t *const tensor) {
     for (int i = 0; i < PT_MAX_DIMS; ++i)
-        if (tensor->dims[i] != 1)
+        if (tensor->shape[i] != 1)
             return false;
     return true;
 }
 
 bool pt_tensor_is_vector(const struct pt_tensor_t *const tensor) {
     for (int i = 1; i < PT_MAX_DIMS; ++i)
-        if (tensor->dims[i] != 1)
+        if (tensor->shape[i] != 1)
             return false;
     return true;
 }
 
 bool pt_tensor_is_matrix(const struct pt_tensor_t *const tensor) {
     for (int i = 2; i < PT_MAX_DIMS; ++i)
-        if (tensor->dims[i] != 1)
+        if (tensor->shape[i] != 1)
             return false;
     return true;
 }
 
 bool pt_tensor_is_transposed(const struct pt_tensor_t *const tensor) {
-    return tensor->dims[0] < tensor->dims[1];
+    return tensor->shape[0] < tensor->shape[1];
 }
 
 bool pt_tensor_is_matmul_compatible(const struct pt_tensor_t *const a, const struct pt_tensor_t *const b) {
-    return a->dims[1] == b->dims[0];
+    return a->shape[1] == b->shape[0];
 }
