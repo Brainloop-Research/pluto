@@ -285,7 +285,7 @@ pt_dim_t pt_tensor_num_elems(const struct pt_tensor_t *const tensor) {
     return tensor->size / (pt_dim_t)sizeof(float);
 }
 
-void pt_tensor_fill(struct pt_tensor_t *tensor, const float x) {
+void pt_tensor_fill(struct pt_tensor_t *const tensor, const float x) {
     if (x == 0.0f) {
         memset(tensor->data, 0, tensor->size);
     } else {
@@ -295,8 +295,37 @@ void pt_tensor_fill(struct pt_tensor_t *tensor, const float x) {
     }
 }
 
-void pt_tensor_fill_lambda(struct pt_tensor_t *tensor, float (*const f)(pt_dim_t)) {
+void pt_tensor_fill_fn(struct pt_tensor_t *const tensor, float (*const f)(pt_dim_t)) {
     for (pt_dim_t i = 0; i < pt_tensor_num_elems(tensor); ++i) {
         tensor->data[i] = (*f)(i);
     }
+}
+
+bool pt_tensor_is_scalar(const struct pt_tensor_t *const tensor) {
+    for (int i = 0; i < PT_MAX_DIMS; ++i)
+        if (tensor->dims[i] != 1)
+            return false;
+    return true;
+}
+
+bool pt_tensor_is_vector(const struct pt_tensor_t *const tensor) {
+    for (int i = 1; i < PT_MAX_DIMS; ++i)
+        if (tensor->dims[i] != 1)
+            return false;
+    return true;
+}
+
+bool pt_tensor_is_matrix(const struct pt_tensor_t *const tensor) {
+    for (int i = 2; i < PT_MAX_DIMS; ++i)
+        if (tensor->dims[i] != 1)
+            return false;
+    return true;
+}
+
+bool pt_tensor_is_transposed(const struct pt_tensor_t *const tensor) {
+    return tensor->dims[0] < tensor->dims[1];
+}
+
+bool pt_tensor_is_matmul_compatible(const struct pt_tensor_t *const a, const struct pt_tensor_t *const b) {
+    return a->dims[1] == b->dims[0];
 }

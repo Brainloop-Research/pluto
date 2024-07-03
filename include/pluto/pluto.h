@@ -170,11 +170,13 @@ extern PT_EXPORT struct pt_tensor_t *pt_tensor_isomorphic(struct pt_ctx_t *ctx, 
 extern PT_EXPORT struct pt_tensor_t *pt_tensor_clone(struct pt_ctx_t *ctx, const struct pt_tensor_t *tensor);
 extern PT_EXPORT pt_dim_t pt_tensor_num_elems(const struct pt_tensor_t *tensor);
 extern PT_EXPORT void pt_tensor_fill(struct pt_tensor_t *tensor, float x);
-extern PT_EXPORT void pt_tensor_fill_lambda(struct pt_tensor_t *tensor, float (*f)(pt_dim_t i));
+extern PT_EXPORT void pt_tensor_fill_fn(struct pt_tensor_t *tensor, float (*f)(pt_dim_t i));
 
 extern PT_EXPORT bool pt_tensor_is_scalar(const struct pt_tensor_t *tensor);
 extern PT_EXPORT bool pt_tensor_is_vector(const struct pt_tensor_t *tensor);
 extern PT_EXPORT bool pt_tensor_is_matrix(const struct pt_tensor_t *tensor);
+extern PT_EXPORT bool pt_tensor_is_transposed(const struct pt_tensor_t *tensor);
+extern PT_EXPORT bool pt_tensor_is_matmul_compatible(const struct pt_tensor_t *a, const struct pt_tensor_t *b);
 
 #ifdef __cplusplus
 }
