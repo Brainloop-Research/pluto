@@ -70,7 +70,11 @@ extern "C" {
 #define PT_CCCYAN "\x1b[36m"
 #define PT_CCRESET "\x1b[0m"
 
-#define PT_SRC_NAME __FILE_NAME__ ":" PT_STRINGIZE(__LINE__)
+#ifdef _MSC_VER
+#   define PT_SRC_NAME __FILE__ ":" PT_STRINGIZE(__LINE__)
+#else
+#   define PT_SRC_NAME __FILE_NAME__ ":" PT_STRINGIZE(__LINE__)
+#endif
 
 #define pt_assert_name2(name, line) name ## line
 #define pt_assert_name(line) pt_assert_name2(_assert_, line)

@@ -56,7 +56,7 @@ const uint8_t pt_opcode_arg_count[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_
 #if !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
 static inline void pt_cpuid(uint32_t (*const o)[4], const uint32_t x) {
 #ifdef _MSC_VER
-    __cpuidex(out, x, 0);
+    __cpuidex(*o, x, 0);
 #elif defined(__cpuid_count)
     __cpuid_count(x, 0, (*o)[0], (*o)[1], (*o)[2], (*o)[3]);
 #else
@@ -174,13 +174,13 @@ static void pt_query_cpu_name(struct pt_ctx_t *const ctx) {
     pt_assert2(sizeof(ctx->cpu_name) >= sizeof(regs));
     char *const name = ctx->cpu_name;
     pt_cpuid(&regs, 0x80000002);
-    for (int i = 0; i < 4; ++i)
+    for (size_t i = 0; i < 4; ++i)
         *(uint32_t *)(name+(i<<2)) = regs[i];
     pt_cpuid(&regs, 0x80000003);
-    for (int i = 0; i < 4; ++i)
+    for (size_t i = 0; i < 4; ++i)
         *(uint32_t *)(name+(i<<2)+16) = regs[i];
     pt_cpuid(&regs, 0x80000004);
-    for (int i = 0; i < 4; ++i)
+    for (size_t i = 0; i < 4; ++i)
         *(uint32_t *)(name+(i<<2)+32) = regs[i];
 #else
     strcpy(ctx->cpu_name, "Unknown");
@@ -198,7 +198,7 @@ static void pt_ctx_push_chunk(struct pt_ctx_t *const ctx) {
 
 void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const size_t chunk_size) {
     if (chunk_size > 1 && chunk_size < (1<<20))
-        pt_log_error("Chunk size very small, set it to >= 1MiB for best performance");
+        pt_log_error("Chunk size very small: %zu, set it to >= 1MiB for best performance", chunk_size);
     memset(ctx, 0, sizeof(*ctx));
     ctx->alloc = alloc ? alloc : &pt_default_allocator;
     ctx->chunk_size = chunk_size ? chunk_size : PT_CTX_CHUNK_SIZE;
