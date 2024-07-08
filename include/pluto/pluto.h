@@ -160,7 +160,6 @@ struct pt_tensor_t {                // Structure to represent a tensor
     pt_dim_t rank;                  // Number of dimensions
     pt_dim_t size;                  // Total size of data in bytes
 };
-
 extern PT_EXPORT struct pt_tensor_t *pt_tensor_new(struct pt_ctx_t *ctx, const pt_dim_t *dims, pt_dim_t num_dims);
 extern PT_EXPORT struct pt_tensor_t *pt_tensor_new_1d(struct pt_ctx_t *ctx, pt_dim_t d1);
 extern PT_EXPORT struct pt_tensor_t *pt_tensor_new_2d(struct pt_ctx_t *ctx, pt_dim_t d1, pt_dim_t d2);
