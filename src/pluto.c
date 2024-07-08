@@ -3,6 +3,7 @@
 #include "pluto.h"
 
 #include <assert.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -328,4 +329,73 @@ bool pt_tensor_is_transposed(const struct pt_tensor_t *const tensor) {
 
 bool pt_tensor_is_matmul_compatible(const struct pt_tensor_t *const a, const struct pt_tensor_t *const b) {
     return a->shape[1] == b->shape[0];
+}
+
+/*
+Softmax activation function
+              ∞
+            ____
+            ╲      n
+        ξ    ╲    ξ
+Ψ(ξ) = e  =  ╱    ──
+            ╱     n!
+            ‾‾‾‾
+            n = 0
+
+               ∞
+             ____
+             ╲      n
+        ξ     ╲    ξ
+Ψ'(ξ) = e  =  ╱    ──
+             ╱     n!
+             ‾‾‾‾
+             n = 0
+ */
+static void PT_UNUSED pt_blas_v_softmax(const size_t n, float *o, const float *const xi) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = expf(xi[i]);
+    }
+}
+#define pt_blas_v_softmax_dv pt_blas_v_softmax // Derivative of e^x is e^x
+
+/*
+Sigmoid activation function
+
+          1
+Ψ(ξ) = ───────
+            -ξ
+       1 + e
+
+Ψ'(ξ) = Ψ(ξ) ⋅ (1 - Ψ(ξ))
+
+*/
+static void PT_UNUSED pt_blas_v_sigmoid(const size_t n, float *o, const float *const xi) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = 1.0f / (1.0f + expf(-xi[i]));
+    }
+}
+static void PT_UNUSED pt_blas_v_sigmoid_dv(const size_t n, float *o, const float *const xi) {
+    for (size_t i = 0; i < n; ++i) {
+        const float psi_of_xi = 1.0f / (1.0f + expf(-xi[i]));
+        o[i] = psi_of_xi * (1.0f - psi_of_xi);
+    }
+}
+
+/*
+Ψ(ξ) = max(0, ξ)
+
+        ⎛0   for ξ < 0
+Ψ'(ξ) = ⎜1   for ξ > 0
+        ⎝UDF for ξ = 0 (undefined), because left and right derivatives are different but we just use 0.
+
+*/
+static void PT_UNUSED pt_blas_v_relu(const size_t n, float *o, const float *const xi) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = fmaxf(0.0f, xi[i]);
+    }
+}
+static void PT_UNUSED pt_blas_v_relu_dv(const size_t n, float *o, const float *const xi) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = xi[i] > 0.0f ? 1.0f : 0.0f;
+    }
 }
