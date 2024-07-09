@@ -110,25 +110,6 @@ extern PT_EXPORT void *pt_default_allocator(void *blk, size_t len);
 #define PT_CTX_CHUNKS_CAP 16 // Initial capacity of chunks
 #define PT_CTX_POOL_LOG_ENABLE 0 // Enable logging for pool allocator
 
-#define PT_OP_ARGMAX 2
-#define pt_opdef(_, __) /* Enum | Mnemonic | Op Desc | ArgCount */\
-    _(PT_OPC_NOP, "nop", "!", 0)__\
-    _(PT_OPC_ADD, "add", "+", 2)__\
-    _(PT_OPC_SUB, "sub", "-", 2)__\
-    _(PT_OPC_MUL, "mul", "*", 2)__\
-    _(PT_OPC_DIV, "div", "/", 2)
-
-enum pt_opcode_t {
-#define inject_enum(opc, _, __, ___) opc
-    pt_opdef(inject_enum, PT_ENUM_SEP)
-#undef inject_enum
-    , PT_OPC_MAX
-};
-
-extern PT_EXPORT const char *const pt_opcode_mnemonic[PT_OPC_MAX];
-extern PT_EXPORT const char *const pt_opcode_desc[PT_OPC_MAX];
-extern PT_EXPORT const uint8_t pt_opcode_arg_count[PT_OPC_MAX];
-
 struct pt_ctx_t {           // Structure to represent a context
     pt_alloc_proc_t alloc;  // Allocator function - allows to plug in custom allocators
     size_t chunk_size;      // Size of each chunk
@@ -139,6 +120,7 @@ struct pt_ctx_t {           // Structure to represent a context
     size_t alloc_acc;       // Number of allocations
     size_t mapped_total;    // Total (virtual) allocated memory by 'alloc' function
     size_t alloc_total;     // Total allocated memory by 'pt_ctx_pool_alloc'
+    uint64_t boot_stamp;    // Boot time stamp in us
     char os_name[128];      // OS name
     char cpu_name[128];     // CPU name
 };
@@ -157,11 +139,52 @@ typedef int64_t pt_dim_t;
 struct pt_tensor_t {                // Structure to represent a tensor
     struct pt_ctx_t *ctx;           // Context host
     float *data;                    // Pointer to the data
-    pt_dim_t shape[PT_MAX_DIMS];     // Size of each dimension
+    pt_dim_t shape[PT_MAX_DIMS];    // Size of each dimension
     pt_dim_t strides[PT_MAX_DIMS];  // Strides for each dimension
     pt_dim_t rank;                  // Number of dimensions
     pt_dim_t size;                  // Total size of data in bytes
+    void *ud;                       // User data
 };
+
+#define PT_OP_ARGMAX 2
+#define pt_opdef(_, __) /* ψ Enumerator | Mnemonic | Info | ArgCount <= PT_OP_ARGMAX */ \
+    /* Nullary operations ψ(_) (argument unused but same signature as unary) */\
+    _(PT_OPC_NOP, "nop", "!", 1)__\
+     /* Unary operations ψ(Tx) */\
+    _(PT_OPC_SOFTMAX, "softmax", "softmax", 1)__\
+    _(PT_OPC_SIGMOID, "sigmoid", "sigmoid", 1)__\
+    _(PT_OPC_RELU, "relu", "relu", 1)__\
+    /* Binary operations ψ(Tx,Ty) */\
+    _(PT_OPC_ADD, "add", "+", 2)__\
+    _(PT_OPC_SUB, "sub", "-", 2)__\
+    _(PT_OPC_MUL, "mul", "*", 2)__\
+    _(PT_OPC_DIV, "div", "/", 2)__\
+    _(PT_OPC_MATMUL, "matmul", "@", 2)
+
+enum pt_opcode_t {
+#define inject_enum(opc, _, __, ___) opc
+    pt_opdef(inject_enum, PT_ENUM_SEP)
+#undef inject_enum
+    , PT_OPC_MAX
+};
+
+typedef bool (*pt_verify_op_t)(
+    const struct pt_ctx_t *ctx,
+    const struct pt_tensor_t *x,
+    const struct pt_tensor_t *y
+);
+typedef struct pt_tensor_t *(*pt_eval_op_t)(
+    const struct pt_ctx_t *ctx,
+    struct pt_tensor_t *x,
+    struct pt_tensor_t *y
+);
+
+extern PT_EXPORT const char *const pt_opcode_mnemonic[PT_OPC_MAX]; // Mnemonic of each operation
+extern PT_EXPORT const char *const pt_opcode_desc[PT_OPC_MAX]; // Description of each operation
+extern PT_EXPORT const uint8_t pt_opcode_arg_count[PT_OPC_MAX]; // Number of arguments for each operation
+extern PT_EXPORT const pt_verify_op_t pt_verify_op[PT_OPC_MAX]; // Lookup table for verification functions
+extern PT_EXPORT const pt_eval_op_t pt_eval_op[PT_OPC_MAX]; // Lookup table for evaluation functions
+
 extern PT_EXPORT struct pt_tensor_t *pt_tensor_new(struct pt_ctx_t *ctx, const pt_dim_t *dims, pt_dim_t num_dims);
 extern PT_EXPORT struct pt_tensor_t *pt_tensor_new_1d(struct pt_ctx_t *ctx, pt_dim_t d1);
 extern PT_EXPORT struct pt_tensor_t *pt_tensor_new_2d(struct pt_ctx_t *ctx, pt_dim_t d1, pt_dim_t d2);

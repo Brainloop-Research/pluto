@@ -48,16 +48,6 @@ void *pt_default_allocator(void *blk, const size_t len) {
     }
 }
 
-#define inject_enum(_, mnemonic, __, ___) mnemonic
-const char *const pt_opcode_mnemonic[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
-#undef inject_enum
-#define inject_enum(_, __, desc, ___) desc
-const char *const pt_opcode_desc[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
-#undef inject_enum
-#define inject_enum(_, __, ___, nargs) (255&nargs)
-const uint8_t pt_opcode_arg_count[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
-#undef inject_enum
-
 #if !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
 static inline void pt_cpuid(uint32_t (*const o)[4], const uint32_t x) {
 #ifdef _MSC_VER
@@ -209,6 +199,7 @@ void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const 
     ctx->chunk_size = chunk_size ? chunk_size : PT_CTX_CHUNK_SIZE;
     ctx->chunks_cap = PT_CTX_CHUNKS_CAP;
     ctx->chunks = (*ctx->alloc)(NULL, ctx->chunks_cap * sizeof(*ctx->chunks));
+    ctx->boot_stamp = pt_hpc_micro_clock();
     pt_ctx_push_chunk(ctx);
     pt_query_os_name(ctx);
     pt_query_cpu_name(ctx);
@@ -249,12 +240,9 @@ void pt_ctx_free(struct pt_ctx_t *const ctx) {
     memset(ctx, 0, sizeof(*ctx));
 }
 
-#ifdef _WIN32
-static __int64 pt_timer_freq, pt_timer_start;
-#endif
-
 uint64_t pt_hpc_micro_clock(void) {
 #ifdef _WIN32
+    static __int64 pt_timer_freq, pt_timer_start;
     LARGE_INTEGER li;
     if (pt_timer_freq == 0) {
         QueryPerformanceFrequency(&li);
@@ -271,6 +259,153 @@ uint64_t pt_hpc_micro_clock(void) {
 #endif
     return 0;
 }
+
+#define inject_enum(_, mnemonic, __, ___) mnemonic
+const char *const pt_opcode_mnemonic[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
+#undef inject_enum
+#define inject_enum(_, __, desc, ___) desc
+const char *const pt_opcode_desc[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
+#undef inject_enum
+#define inject_enum(_, __, ___, nargs) (pt_min(PT_OP_ARGMAX, 255&nargs))
+const uint8_t pt_opcode_arg_count[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
+#undef inject_enum
+
+static void PT_UNUSED PT_AINLINE pt_blas_v_softmax_f32(const size_t n, float *o, const float *const x) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = expf(x[i]);
+    }
+}
+#define pt_blas_v_softmax_dv_f32 pt_blas_v_softmax_f32 // D/Dx(e^x) = e^x
+
+static void PT_UNUSED PT_AINLINE pt_blas_v_sigmoid_f32(const size_t n, float *o, const float *const x) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = 1.0f / (1.0f + expf(-x[i]));
+    }
+}
+static void PT_UNUSED PT_AINLINE pt_blas_v_sigmoid_dv_f32(const size_t n, float *o, const float *const x) {
+    for (size_t i = 0; i < n; ++i) {
+        float y;
+        pt_blas_v_sigmoid_f32(1, &y, x+i);
+        o[i] = y * (1.0f - y);
+    }
+}
+
+static void PT_UNUSED PT_AINLINE pt_blas_v_relu_f32(const size_t n, float *o, const float *const x) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = fmaxf(0.0f, x[i]);
+    }
+}
+static void PT_UNUSED PT_AINLINE pt_blas_v_relu_dv_f32(const size_t n, float *o, const float *const x) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = x[i] > 0.0f ? 1.0f : 0.0f;
+    }
+}
+
+#define pt_impl_verify_op(opc, body)\
+    static bool pt_verify_unary_##opc(\
+        const struct pt_ctx_t *const ctx,\
+        const struct pt_tensor_t *const x,\
+        const struct pt_tensor_t *const y\
+    ){\
+        (void)ctx, (void)x, (void)y;\
+        body\
+    }
+
+#define pt_impl_eval_op(opc, body)\
+    static struct pt_tensor_t *pt_eval_unary_##opc(\
+        const struct pt_ctx_t *const ctx,\
+        struct pt_tensor_t *const x,\
+        struct pt_tensor_t *const y\
+    ){\
+        (void)ctx, (void)x, (void)y;\
+        body\
+    }
+
+pt_impl_verify_op(nop, {
+    return true; // NO-OP
+})
+pt_impl_eval_op(nop, {
+    return x; // NO-OP
+})
+
+pt_impl_verify_op(softmax, {
+    return true; // TODO
+})
+pt_impl_eval_op(softmax, {
+    return x; // TODO
+})
+
+pt_impl_verify_op(sigmoid, {
+    return true; // TODO
+})
+pt_impl_eval_op(sigmoid, {
+    return x; // TODO
+})
+
+pt_impl_verify_op(relu, {
+    return true; // TODO
+})
+pt_impl_eval_op(relu, {
+    return x; // TODO
+})
+
+pt_impl_verify_op(add, {
+    return true; // TODO
+})
+pt_impl_eval_op(add, {
+    return x; // TODO
+})
+
+pt_impl_verify_op(sub, {
+    return true; // TODO
+})
+pt_impl_eval_op(sub, {
+    return x; // TODO
+})
+
+pt_impl_verify_op(mul, {
+    return true; // TODO
+})
+pt_impl_eval_op(mul, {
+    return x; // TODO
+})
+
+pt_impl_verify_op(div, {
+    return true; // TODO
+})
+pt_impl_eval_op(div, {
+    return x; // TODO
+})
+
+pt_impl_verify_op(matmul, {
+    return true; // TODO
+})
+pt_impl_eval_op(matmul, {
+    return x; // TODO
+})
+
+const pt_verify_op_t pt_verify_op[PT_OPC_MAX] = {
+    [PT_OPC_NOP] = &pt_verify_unary_nop,
+    [PT_OPC_SOFTMAX] = &pt_verify_unary_softmax,
+    [PT_OPC_SIGMOID] = &pt_verify_unary_sigmoid,
+    [PT_OPC_RELU] = &pt_verify_unary_relu,
+    [PT_OPC_ADD] = &pt_verify_unary_add,
+    [PT_OPC_SUB] = &pt_verify_unary_sub,
+    [PT_OPC_MUL] = &pt_verify_unary_mul,
+    [PT_OPC_DIV] = &pt_verify_unary_div,
+    [PT_OPC_MATMUL] = &pt_verify_unary_matmul
+};
+const pt_eval_op_t pt_eval_op[PT_OPC_MAX] = {
+    [PT_OPC_NOP] = &pt_eval_unary_nop,
+    [PT_OPC_SOFTMAX] = &pt_eval_unary_softmax,
+    [PT_OPC_SIGMOID] = &pt_eval_unary_sigmoid,
+    [PT_OPC_RELU] = &pt_eval_unary_relu,
+    [PT_OPC_ADD] = &pt_eval_unary_add,
+    [PT_OPC_SUB] = &pt_eval_unary_sub,
+    [PT_OPC_MUL] = &pt_eval_unary_mul,
+    [PT_OPC_DIV] = &pt_eval_unary_div,
+    [PT_OPC_MATMUL] = &pt_eval_unary_matmul
+};
 
 struct pt_tensor_t *pt_tensor_new(struct pt_ctx_t *ctx, const pt_dim_t *const dims, const pt_dim_t num_dims) {
     assert(num_dims > 0 && num_dims <= PT_MAX_DIMS);
@@ -356,34 +491,4 @@ bool pt_tensor_is_transposed(const struct pt_tensor_t *const tensor) {
 
 bool pt_tensor_is_matmul_compatible(const struct pt_tensor_t *const a, const struct pt_tensor_t *const b) {
     return a->shape[1] == b->shape[0];
-}
-
-static void PT_UNUSED pt_blas_v_softmax(const size_t n, float *o, const float *const x) {
-    for (size_t i = 0; i < n; ++i) {
-        o[i] = expf(x[i]);
-    }
-}
-#define pt_blas_v_softmax_dv pt_blas_v_softmax // Derivative of e^x is e^x
-
-static void PT_UNUSED pt_blas_v_sigmoid(const size_t n, float *o, const float *const x) {
-    for (size_t i = 0; i < n; ++i) {
-        o[i] = 1.0f / (1.0f + expf(-x[i]));
-    }
-}
-static void PT_UNUSED pt_blas_v_sigmoid_dv(const size_t n, float *o, const float *const x) {
-    for (size_t i = 0; i < n; ++i) {
-        const float y = 1.0f / (1.0f + expf(-x[i]));
-        o[i] = y * (1.0f - y);
-    }
-}
-
-static void PT_UNUSED pt_blas_v_relu(const size_t n, float *o, const float *const x) {
-    for (size_t i = 0; i < n; ++i) {
-        o[i] = fmaxf(0.0f, x[i]);
-    }
-}
-static void PT_UNUSED pt_blas_v_relu_dv(const size_t n, float *o, const float *const x) {
-    for (size_t i = 0; i < n; ++i) {
-        o[i] = x[i] > 0.0f ? 1.0f : 0.0f;
-    }
 }
