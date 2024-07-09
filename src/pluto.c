@@ -13,6 +13,10 @@
 #   include <sys/types.h>
 #elif defined(__x86_64__) && !defined(_WIN32)
 #   include <cpuid.h>
+#   include <unistd.h>
+#elif defined(_WIN32)
+#   define WIN32_LEAN_AND_MEAN
+#   include <windows.h>
 #elif defined(_MSC_VER)
 #   include <intrin.h>
 #endif
@@ -243,6 +247,29 @@ void pt_ctx_free(struct pt_ctx_t *const ctx) {
         (*ctx->alloc)(ctx->chunks[i], 0);
     (*ctx->alloc)(ctx->chunks, 0);
     memset(ctx, 0, sizeof(*ctx));
+}
+
+#ifdef _WIN32
+static __int64 pt_timer_freq, pt_timer_start;
+#endif
+
+uint64_t pt_hpc_micro_clock(void) {
+#ifdef _WIN32
+    LARGE_INTEGER li;
+    if (pt_timer_freq == 0) {
+        QueryPerformanceFrequency(&li);
+        pt_timer_freq = li.QuadPart;
+        QueryPerformanceCounter(&li);
+        pt_timer_start = li.QuadPart;
+    }
+    QueryPerformanceCounter(&li);
+    return (uint64_t)((li.QuadPart - pt_timer_start)*1000000ull / pt_timer_freq);
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec*1000000ull + (uint64_t)ts.tv_nsec/1000ull;
+#endif
+    return 0;
 }
 
 struct pt_tensor_t *pt_tensor_new(struct pt_ctx_t *ctx, const pt_dim_t *const dims, const pt_dim_t num_dims) {

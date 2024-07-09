@@ -147,6 +147,8 @@ extern PT_EXPORT void pt_ctx_init(struct pt_ctx_t *ctx, pt_alloc_proc_t alloc, s
 extern PT_EXPORT void *pt_ctx_pool_alloc(struct pt_ctx_t *ctx, size_t len);
 extern PT_EXPORT void pt_ctx_free(struct pt_ctx_t *ctx);
 
+extern PT_EXPORT uint64_t pt_hpc_micro_clock(void);
+
 typedef int64_t pt_dim_t;
 #define PT_DIM_MAX INT64_MAX
 #define PT_DIM_MIN 0
