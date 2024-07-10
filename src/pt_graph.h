@@ -1,7 +1,7 @@
 // (c) 2024 Brainloop Research, Mario Sieg. <mario.sieg.64@gmail.com>
 
-#ifndef PT_BLAS_H
-#define PT_BLAS_H
+#ifndef PT_GRAPH_H
+#define PT_GRAPH_H
 
 #include "pt_core.h"
 
