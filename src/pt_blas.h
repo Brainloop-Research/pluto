@@ -92,9 +92,9 @@ pt_static_assert(sizeof(struct pt_bf16_t) == 2);
 #define PT_BF16_LOG2_10 pt_bf16_c(0x4055)
 #define PT_BF16_SQRT_2 pt_bf16_c(0x3fb5)
 
-static inline float pt_blas_cvt_f16_to_f32_sca(const struct pt_f16_t x) {
+static PT_AINLINE float pt_blas_cvt_f16_to_f32_sca(const struct pt_f16_t x) {
 #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
-    return (float)*(__fp16 *)&x;
+    return (float)*(const __fp16 *)&x;
 #else // Slow software emulated path
     const uint32_t w = (uint32_t)x.bits<<16;
     const uint32_t sign = w & 0x80000000u;
@@ -113,9 +113,9 @@ static inline float pt_blas_cvt_f16_to_f32_sca(const struct pt_f16_t x) {
 #endif
 }
 
-static inline struct pt_f16_t pt_blas_cvt_f32_to_f16_sca(const float x) {
+static PT_AINLINE struct pt_f16_t pt_blas_cvt_f32_to_f16_sca(const float x) {
 #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
-    const __fp16 f16 = (__fp16)x;
+    const __fp16 f16 = (const __fp16)x;
     return *(struct pt_f16_t *)&f16;
 #else // Slow software emulated path
     float base = (fabsf(x) * 0x1.0p+112f) * 0x1.0p-110f;  // Normalize |x|
@@ -134,12 +134,12 @@ static inline struct pt_f16_t pt_blas_cvt_f32_to_f16_sca(const float x) {
 #endif
 }
 
-static inline float pt_blas_cvt_bf16_to_f32_sca(const struct pt_bf16_t x) {
+static PT_AINLINE float pt_blas_cvt_bf16_to_f32_sca(const struct pt_bf16_t x) {
     const uint32_t tmp = (uint32_t)x.bits<<16;
     return *(float *)&tmp;
 }
 
-static inline struct pt_bf16_t pt_blas_cvt_f32_to_bf16_sca(const float x) { // Same as x86-64 ASM instruction: vcvtneps2bf16 from AMD Zen4.
+static PT_AINLINE struct pt_bf16_t pt_blas_cvt_f32_to_bf16_sca(const float x) { // Same as x86-64 ASM instruction: vcvtneps2bf16 from AMD Zen4.
     struct pt_bf16_t bf16;
     if (((*(uint32_t *)&x) & 0x7fffffff) > 0x7f800000) { // NaN
         bf16.bits = 64 | ((*(uint32_t *)&x)>>16); // quiet NaNs only
