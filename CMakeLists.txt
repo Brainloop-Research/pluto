@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD 99)
 
 option(PLUTO_BUILD_TESTS "Build tests" ON)
 
-file(GLOB_RECURSE SOURCES include/*.h src/*.c)
+file(GLOB_RECURSE SOURCES src/*.h src/*.c)
 
 if (WIN32)
    if (MSVC)

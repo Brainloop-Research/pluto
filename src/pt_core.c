@@ -1,8 +1,9 @@
-// (c) 2024 Brainloop Research. <mario.sieg.64@gmail.com>
+// (c) 2024 Brainloop Research, Mario Sieg. <mario.sieg.64@gmail.com>
 
-#include "pluto.h"
+#include "pt_core.h"
 
 #include <assert.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -12,6 +13,10 @@
 #   include <sys/types.h>
 #elif defined(__x86_64__) && !defined(_WIN32)
 #   include <cpuid.h>
+#   include <unistd.h>
+#elif defined(_WIN32)
+#   define WIN32_LEAN_AND_MEAN
+#   include <windows.h>
 #elif defined(_MSC_VER)
 #   include <intrin.h>
 #endif
@@ -42,16 +47,6 @@ void *pt_default_allocator(void *blk, const size_t len) {
         return block;
     }
 }
-
-#define inject_enum(_, mnemonic, __, ___) mnemonic
-const char *const pt_opcode_mnemonic[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
-#undef inject_enum
-#define inject_enum(_, __, desc, ___) desc
-const char *const pt_opcode_desc[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
-#undef inject_enum
-#define inject_enum(_, __, ___, nargs) (255&nargs)
-const uint8_t pt_opcode_arg_count[PT_OPC_MAX] = { pt_opdef(inject_enum, PT_ENUM_SEP) };
-#undef inject_enum
 
 #if !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
 static inline void pt_cpuid(uint32_t (*const o)[4], const uint32_t x) {
@@ -204,6 +199,7 @@ void pt_ctx_init(struct pt_ctx_t *const ctx, const pt_alloc_proc_t alloc, const 
     ctx->chunk_size = chunk_size ? chunk_size : PT_CTX_CHUNK_SIZE;
     ctx->chunks_cap = PT_CTX_CHUNKS_CAP;
     ctx->chunks = (*ctx->alloc)(NULL, ctx->chunks_cap * sizeof(*ctx->chunks));
+    ctx->boot_stamp = pt_hpc_micro_clock();
     pt_ctx_push_chunk(ctx);
     pt_query_os_name(ctx);
     pt_query_cpu_name(ctx);
@@ -244,88 +240,22 @@ void pt_ctx_free(struct pt_ctx_t *const ctx) {
     memset(ctx, 0, sizeof(*ctx));
 }
 
-struct pt_tensor_t *pt_tensor_new(struct pt_ctx_t *ctx, const pt_dim_t *const dims, const pt_dim_t num_dims) {
-    assert(num_dims > 0 && num_dims <= PT_MAX_DIMS);
-    pt_dim_t bytes = sizeof(float);
-    for (pt_dim_t i = 0; i < num_dims; ++i) // Accumulate the total data size in bytes
-        bytes *= dims[i];
-    struct pt_tensor_t *tensor = pt_ctx_pool_alloc(ctx, sizeof(*tensor) + bytes); // Allocate memory for the tensor + data
-    memset(tensor, 0, sizeof(*tensor));
-    tensor->ctx = ctx;
-    tensor->size = bytes;
-    tensor->data = (float *)(tensor + 1); // Set the data pointer to the end of the tensor structure, where the data follows
-    memset(tensor->data, 0, bytes); // Initialize the data to zero
-    for (pt_dim_t i = 0; i < PT_MAX_DIMS; ++i) // Set dimensions and strides to identity to saturate out zero multiplication because: x * 0 = 0
-        tensor->shape[i] = 1;
-    memcpy(tensor->shape, dims, num_dims * sizeof(*dims));
-    tensor->strides[0] = sizeof(*tensor->data);
-    for (pt_dim_t i = 1; i < PT_MAX_DIMS; ++i) // Calculate strides for each dimension
-        tensor->strides[i] = tensor->strides[i - 1] * tensor->shape[i - 1];
-    tensor->rank = num_dims;
-    return tensor;
-}
-
-struct pt_tensor_t *pt_tensor_new_1d(struct pt_ctx_t *const ctx, const pt_dim_t d1) { return pt_tensor_new(ctx, (pt_dim_t[]){d1}, 1); }
-struct pt_tensor_t *pt_tensor_new_2d(struct pt_ctx_t *const ctx, const pt_dim_t d1, const pt_dim_t d2) { return pt_tensor_new(ctx, (pt_dim_t[]){d1, d2}, 2);}
-struct pt_tensor_t *pt_tensor_new_3d(struct pt_ctx_t *const ctx, const pt_dim_t d1, const pt_dim_t d2, const pt_dim_t d3) { return pt_tensor_new(ctx, (pt_dim_t[]){d1, d2, d3}, 3); }
-struct pt_tensor_t *pt_tensor_new_4d(struct pt_ctx_t *const ctx, const pt_dim_t d1, const pt_dim_t d2, const pt_dim_t d3, const pt_dim_t d4) { return pt_tensor_new(ctx, (pt_dim_t[]){d1, d2, d3, d4}, 4); }
-
-struct pt_tensor_t *pt_tensor_isomorphic(struct pt_ctx_t *const ctx, const struct pt_tensor_t *const tensor) {
-    struct pt_tensor_t *const iso = pt_tensor_new(ctx, tensor->shape, tensor->rank);
-    return iso;
-}
-
-struct pt_tensor_t *pt_tensor_clone(struct pt_ctx_t *const ctx, const struct pt_tensor_t *const tensor) {
-    struct pt_tensor_t *const iso = pt_tensor_isomorphic(ctx, tensor);
-    memcpy(iso->data, tensor->data, tensor->size); // Copy data
-    return iso;
-}
-
-pt_dim_t pt_tensor_num_elems(const struct pt_tensor_t *const tensor) {
-    return tensor->size / (pt_dim_t)sizeof(float);
-}
-
-void pt_tensor_fill(struct pt_tensor_t *const tensor, const float x) {
-    if (x == 0.0f) {
-        memset(tensor->data, 0, tensor->size);
-    } else {
-        for (pt_dim_t i = 0; i < pt_tensor_num_elems(tensor); ++i) {
-            tensor->data[i] = x;
-        }
+uint64_t pt_hpc_micro_clock(void) {
+#ifdef _WIN32
+    static __int64 pt_timer_freq, pt_timer_start;
+    LARGE_INTEGER li;
+    if (pt_timer_freq == 0) {
+        QueryPerformanceFrequency(&li);
+        pt_timer_freq = li.QuadPart;
+        QueryPerformanceCounter(&li);
+        pt_timer_start = li.QuadPart;
     }
-}
-
-void pt_tensor_fill_fn(struct pt_tensor_t *const tensor, float (*const f)(pt_dim_t)) {
-    for (pt_dim_t i = 0; i < pt_tensor_num_elems(tensor); ++i) {
-        tensor->data[i] = (*f)(i);
-    }
-}
-
-bool pt_tensor_is_scalar(const struct pt_tensor_t *const tensor) {
-    for (int i = 0; i < PT_MAX_DIMS; ++i)
-        if (tensor->shape[i] != 1)
-            return false;
-    return true;
-}
-
-bool pt_tensor_is_vector(const struct pt_tensor_t *const tensor) {
-    for (int i = 1; i < PT_MAX_DIMS; ++i)
-        if (tensor->shape[i] != 1)
-            return false;
-    return true;
-}
-
-bool pt_tensor_is_matrix(const struct pt_tensor_t *const tensor) {
-    for (int i = 2; i < PT_MAX_DIMS; ++i)
-        if (tensor->shape[i] != 1)
-            return false;
-    return true;
-}
-
-bool pt_tensor_is_transposed(const struct pt_tensor_t *const tensor) {
-    return tensor->shape[0] < tensor->shape[1];
-}
-
-bool pt_tensor_is_matmul_compatible(const struct pt_tensor_t *const a, const struct pt_tensor_t *const b) {
-    return a->shape[1] == b->shape[0];
+    QueryPerformanceCounter(&li);
+    return (uint64_t)((li.QuadPart - pt_timer_start)*1000000ull / pt_timer_freq);
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec*1000000ull + (uint64_t)ts.tv_nsec/1000ull;
+#endif
+    return 0;
 }

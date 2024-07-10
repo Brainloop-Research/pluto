@@ -5,4 +5,5 @@
 #include <cmath>
 
 #include <pluto.h>
+
 #include <gtest/gtest.h>
