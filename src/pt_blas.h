@@ -5,6 +5,10 @@
 
 #include "pt_core.h"
 
+#ifdef __ARM_NEON
+#   include <arm_neon.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -83,15 +87,90 @@ pt_static_assert(sizeof(struct pt_bf16_t) == 2);
 #define PT_BF16_LOG2_10 pt_bf16_c(0x4055)
 #define PT_BF16_SQRT_2 pt_bf16_c(0x3fb5)
 
-extern PT_EXPORT float pt_blas_cvt_f16_to_f32_sca(struct pt_f16_t x);
-extern PT_EXPORT struct pt_f16_t pt_blas_cvt_f32_to_f16_sca(float x);
-extern PT_EXPORT float pt_blas_cvt_bf16_to_f32_sca(struct pt_bf16_t x);
-extern PT_EXPORT struct pt_bf16_t pt_blas_cvt_f32_to_bf16_sca(float x);
+static inline float pt_blas_cvt_f16_to_f32_sca(const struct pt_f16_t x) {
+#if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
+    return (float)*(__fp16 *)&x;
+#else // Slow software emulated path
+    const uint32_t w = (uint32_t)x.bits<<16;
+    const uint32_t sign = w & 0x80000000u;
+    const uint32_t two_w = w + w;
+    const uint32_t exp_offset = 0xe0u<<23; // Exponent offset for normalization
+    uint32_t tmp = (two_w>>4) + exp_offset; // Adjust exponent
+    const float norm_x = *(float *)&tmp * 0x1.0p-112f; // Normalize the result
+    tmp = (two_w>>17) | (126u<<23); // Adjust exponent for denormalized values
+    const float denorm_x = *(float *)&tmp - 0.5f;
+    const uint32_t denorm_cutoff = 1u<<27; // Threshold for denormalized values
+    const uint32_t result = sign // Combine sign and mantissa
+        | (two_w < denorm_cutoff
+        ? *(uint32_t *)&denorm_x // Use denormalized value if below cutoff
+        : *(uint32_t *)&norm_x); // Else use normalized value
+    return *(float *)&result;
+#endif
+}
 
-extern PT_EXPORT void pt_blas_cvt_f16_to_f32_vec(size_t n, float *o, const struct pt_f16_t *x);
-extern PT_EXPORT void pt_blas_cvt_f32_to_f16_vec(size_t n, struct pt_f16_t *o, const float *x);
-extern PT_EXPORT void pt_blas_cvt_bf16_to_f32_vec(size_t n, float *o, const struct pt_bf16_t *x);
-extern PT_EXPORT void pt_blas_cvt_f32_to_bf16_vec(size_t n, struct pt_bf16_t *o, const float *x);
+static inline struct pt_f16_t pt_blas_cvt_f32_to_f16_sca(const float x) {
+#if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
+    const __fp16 f16 = (__fp16)x;
+    return *(struct pt_f16_t *)&f16;
+#else // Slow software emulated path
+    float base = (fabsf(x) * 0x1.0p+112f) * 0x1.0p-110f;  // Normalize |x|
+    const uint32_t w = *(uint32_t *)&x;
+    const uint32_t shl1_w = w + w;
+    const uint32_t sign = w & 0x80000000u;
+    uint32_t bias = shl1_w & 0xff000000u; // Extract bias
+    if (bias < 0x71000000u) bias = 0x71000000u; // Apply minimum bias for subnormals
+    bias = (bias>>1) + 0x07800000u; // Adjust bias for half precision
+    base = *(float *)&bias + base;
+    const uint32_t bits = *(uint32_t *)&base; // Extract bits
+    const uint32_t exp_bits = (bits>>13) & 0x00007c00u; // Extract exponent bits
+    const uint32_t mant_bits = bits & 0x00000fffu; // Extract mantissa bits
+    const uint32_t nonsign = exp_bits + mant_bits; // Combine exponent and mantissa bits
+    return (struct pt_f16_t){.bits=(uint16_t)((sign>>16) | (shl1_w > 0xff000000 ? 0x7e00 : nonsign))}; // Pack full bit pattern
+#endif
+}
+
+static inline float pt_blas_cvt_bf16_to_f32_sca(const struct pt_bf16_t x) {
+    const uint32_t tmp = (uint32_t)x.bits<<16;
+    return *(float *)&tmp;
+}
+
+static inline struct pt_bf16_t pt_blas_cvt_f32_to_bf16_sca(const float x) { // Same as x86-64 ASM instruction: vcvtneps2bf16 from AMD Zen4.
+    struct pt_bf16_t bf16;
+    if (((*(uint32_t *)&x) & 0x7fffffff) > 0x7f800000) { // NaN
+        bf16.bits = 64 | ((*(uint32_t *)&x)>>16); // quiet NaNs only
+        return bf16;
+    }
+    if (!((*(uint32_t *)&x) & 0x7f800000)) { // Subnormals
+        bf16.bits = ((*(uint32_t *)&x) & 0x80000000)>>16; // Flush to zero
+        return bf16;
+    }
+    bf16.bits = ((*(uint32_t *)&x) + (0x7fff + (((*(uint32_t *)&x)>>16) & 1)))>>16; // Rounding and composing final bf16 value
+    return bf16;
+}
+
+static inline void pt_blas_cvt_f16_to_f32_vec(const size_t n, float *const o, const struct pt_f16_t *const x) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = pt_blas_cvt_f16_to_f32_sca(x[i]);
+    }
+}
+
+static inline void pt_blas_cvt_f32_to_f16_vec(const size_t n, struct pt_f16_t *const o, const float *const x) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = pt_blas_cvt_f32_to_f16_sca(x[i]);
+    }
+}
+
+static inline void pt_blas_cvt_bf16_to_f32_vec(const size_t n, float *const o, const struct pt_bf16_t *const x) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = pt_blas_cvt_bf16_to_f32_sca(x[i]);
+    }
+}
+
+static inline void pt_blas_cvt_f32_to_bf16_vec(const size_t n, struct pt_bf16_t *const o, const float *const x) {
+    for (size_t i = 0; i < n; ++i) {
+        o[i] = pt_blas_cvt_f32_to_bf16_sca(x[i]);
+    }
+}
 
 #ifdef __cplusplus
 }
