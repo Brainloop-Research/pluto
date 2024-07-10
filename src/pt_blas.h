@@ -1,12 +1,16 @@
 // (c) 2024 Brainloop Research, Mario Sieg. <mario.sieg.64@gmail.com>
-
-#ifndef PT_BLAS_H
-#define PT_BLAS_H
+// Header file for basic linear algebra subprograms (BLAS) for Brainloop Research's Pluto library.
+// Can be directly included for multiple implementations for different ISAs
 
 #include "pt_core.h"
 
 #ifdef __ARM_NEON
 #   include <arm_neon.h>
+#endif
+#if defined(_MSC_VER) || defined(__MINGW32__)
+#   include <intrin.h>
+#elif defined(__x86_64__) || defined(_M_AMD64)
+#   include <immintrin.h>
 #endif
 
 #ifdef __cplusplus
@@ -149,6 +153,7 @@ static inline struct pt_bf16_t pt_blas_cvt_f32_to_bf16_sca(const float x) { // S
 }
 
 static inline void pt_blas_cvt_f16_to_f32_vec(const size_t n, float *const o, const struct pt_f16_t *const x) {
+
     for (size_t i = 0; i < n; ++i) {
         o[i] = pt_blas_cvt_f16_to_f32_sca(x[i]);
     }
@@ -174,6 +179,4 @@ static inline void pt_blas_cvt_f32_to_bf16_vec(const size_t n, struct pt_bf16_t 
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

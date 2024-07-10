@@ -48,7 +48,7 @@ void *pt_default_allocator(void *blk, const size_t len) {
     }
 }
 
-#if !defined(__ARM_ARCH) && (defined(__x86_64__) || defined(_WIN64))
+#if defined(__x86_64__) || defined(_M_AMD64)
 static inline void pt_cpuid(uint32_t (*const o)[4], const uint32_t x) {
 #ifdef _MSC_VER
     __cpuidex(*o, x, 0);
