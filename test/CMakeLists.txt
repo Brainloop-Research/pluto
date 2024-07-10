@@ -10,6 +10,6 @@ add_subdirectory(googletest)
 
 add_executable(pluto_test ${TEST_SOURCES})
 target_link_libraries(pluto_test pluto)
-target_include_directories(pluto_test PUBLIC ../include/pluto)
+target_include_directories(pluto_test PUBLIC ../src)
 target_include_directories(pluto_test PUBLIC ../googletest/googletest/include)
 target_link_libraries(pluto_test gtest_main)
