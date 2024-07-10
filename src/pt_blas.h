@@ -190,7 +190,7 @@ static inline void pt_blas_cvt_f32_to_f16_vec(const pt_dim_t n, struct pt_f16_t 
 static inline void pt_blas_cvt_bf16_to_f32_vec(const pt_dim_t n, float *const o, const struct pt_bf16_t *const x) {
     pt_dim_t i = 0;
 #ifdef __AVX512F__
-    for (; i+16 <= n; i += 16) {
+    for (; i+15 < n; i += 16) {
         _mm512_storeu_ps(o+i,
             _mm512_castsi512_ps(
                 _mm512_slli_epi32(
@@ -202,7 +202,7 @@ static inline void pt_blas_cvt_bf16_to_f32_vec(const pt_dim_t n, float *const o,
         );
     }
 #elif defined(__AVX2__)
-    for (; i+8 <= n; i += 8) {
+    for (; i+7 < n; i += 8) {
         _mm256_storeu_ps(
             o+i,
             _mm256_castsi256_ps(
