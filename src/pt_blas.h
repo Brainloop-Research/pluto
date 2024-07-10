@@ -3,6 +3,7 @@
 // Can be directly included for multiple implementations for different ISAs
 
 #include "pt_core.h"
+#include "pt_tensor.h"
 
 #ifdef __ARM_NEON
 #   include <arm_neon.h>
@@ -152,27 +153,76 @@ static inline struct pt_bf16_t pt_blas_cvt_f32_to_bf16_sca(const float x) { // S
     return bf16;
 }
 
-static inline void pt_blas_cvt_f16_to_f32_vec(const size_t n, float *const o, const struct pt_f16_t *const x) {
-
-    for (size_t i = 0; i < n; ++i) {
+static inline void pt_blas_cvt_f16_to_f32_vec(const pt_dim_t n, float *const o, const struct pt_f16_t *const x) {
+    for (pt_dim_t i = 0; i < n; ++i) {
         o[i] = pt_blas_cvt_f16_to_f32_sca(x[i]);
     }
 }
 
-static inline void pt_blas_cvt_f32_to_f16_vec(const size_t n, struct pt_f16_t *const o, const float *const x) {
-    for (size_t i = 0; i < n; ++i) {
+static inline void pt_blas_cvt_f32_to_f16_vec(const pt_dim_t n, struct pt_f16_t *const o, const float *const x) {
+    pt_dim_t i = 0;
+#ifdef __F16C__
+    for (; i+7 < n; i += 8) {
+        _mm_storeu_si128(
+            (__m128i *)(o+i),
+            _mm256_cvtps_ph(
+                _mm256_loadu_ps(x+i),
+                _MM_FROUND_TO_NEAREST_INT
+            )
+        );
+    }
+    for(; i+3 < n; i += 4) {
+        _mm_storel_epi64(
+            (__m128i *)(o+i),
+            _mm_cvtps_ph(
+                _mm_loadu_ps(x+i),
+                _MM_FROUND_TO_NEAREST_INT
+            )
+        );
+    }
+#else
+    for (; i < n; ++i) {
         o[i] = pt_blas_cvt_f32_to_f16_sca(x[i]);
     }
+#endif
 }
 
-static inline void pt_blas_cvt_bf16_to_f32_vec(const size_t n, float *const o, const struct pt_bf16_t *const x) {
-    for (size_t i = 0; i < n; ++i) {
+static inline void pt_blas_cvt_bf16_to_f32_vec(const pt_dim_t n, float *const o, const struct pt_bf16_t *const x) {
+    pt_dim_t i = 0;
+#ifdef __AVX512F__
+    for (; i+16 <= n; i += 16) {
+        _mm512_storeu_ps(o+i,
+            _mm512_castsi512_ps(
+                _mm512_slli_epi32(
+                    _mm512_cvtepu16_epi32(
+                        _mm256_loadu_si256((const __m256i *)(x+i))
+                    ), 16
+                )
+            )
+        );
+    }
+#elif defined(__AVX2__)
+    for (; i+8 <= n; i += 8) {
+        _mm256_storeu_ps(
+            o+i,
+            _mm256_castsi256_ps(
+                _mm256_slli_epi32(
+                    _mm256_cvtepu16_epi32(
+                        _mm_loadu_si128((const __m128i *)(x+i))
+                    ), 16
+                )
+            )
+        );
+    }
+#else
+    for (; i < n; ++i) {
         o[i] = pt_blas_cvt_bf16_to_f32_sca(x[i]);
     }
+#endif
 }
 
-static inline void pt_blas_cvt_f32_to_bf16_vec(const size_t n, struct pt_bf16_t *const o, const float *const x) {
-    for (size_t i = 0; i < n; ++i) {
+static inline void pt_blas_cvt_f32_to_bf16_vec(const pt_dim_t n, struct pt_bf16_t *const o, const float *const x) {
+    for (pt_dim_t i = 0; i < n; ++i) {
         o[i] = pt_blas_cvt_f32_to_bf16_sca(x[i]);
     }
 }
