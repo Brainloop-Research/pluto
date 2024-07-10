@@ -35,13 +35,13 @@ struct pt_tensor_t;
 
 typedef bool (*pt_verify_op_t)(
     const struct pt_ctx_t *ctx,
-    const struct pt_tensor_t *x,
-    const struct pt_tensor_t *y
+    const struct pt_tensor_t **args,
+    size_t n_args
 );
 typedef struct pt_tensor_t *(*pt_eval_op_t)(
     const struct pt_ctx_t *ctx,
-    struct pt_tensor_t *x,
-    struct pt_tensor_t *y
+    struct pt_tensor_t **args,
+    size_t n_args
 );
 
 extern PT_EXPORT const char *const pt_opcode_mnemonic[PT_OPC_MAX]; // Mnemonic of each operation
