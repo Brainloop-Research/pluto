@@ -41,7 +41,7 @@ struct pt_tensor_t *pt_tensor_clone(struct pt_ctx_t *const ctx, const struct pt_
     return iso;
 }
 
-pt_dim_t pt_tensor_element_count(const struct pt_tensor_t *tensor) {
+pt_dim_t pt_tensor_element_count(const struct pt_tensor_t *const tensor) {
     return tensor->size / (pt_dim_t)sizeof(float);
 }
 
@@ -56,7 +56,7 @@ pt_dim_t pt_tensor_column_count(const struct pt_tensor_t *const tensor) {
     return tensor->shape[0];
 }
 
-void pt_linear_to_multidim_idx(const struct pt_tensor_t *tensor, pt_dim_t i, pt_dim_t (*const dims)[4]) {
+void pt_linear_to_multidim_idx(const struct pt_tensor_t *const tensor, const pt_dim_t i, pt_dim_t (*const dims)[4]) {
     const pt_dim_t d0 = tensor->shape[0];
     const pt_dim_t d1 = tensor->shape[1];
     const pt_dim_t d2 = tensor->shape[2];

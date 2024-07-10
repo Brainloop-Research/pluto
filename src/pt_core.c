@@ -246,7 +246,7 @@ uint64_t pt_hpc_micro_clock(void) {
 #ifdef _WIN32
     static __int64 pt_timer_freq, pt_timer_start;
     LARGE_INTEGER li;
-    if (pt_timer_freq == 0) {
+    if (!pt_timer_freq) {
         QueryPerformanceFrequency(&li);
         pt_timer_freq = li.QuadPart;
         QueryPerformanceCounter(&li);
