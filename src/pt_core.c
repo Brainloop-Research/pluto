@@ -8,6 +8,8 @@
 #include <string.h>
 #include <stdarg.h>
 
+#include <time.h>
+
 #ifdef __APPLE__
 #   include <sys/sysctl.h>
 #   include <sys/types.h>
