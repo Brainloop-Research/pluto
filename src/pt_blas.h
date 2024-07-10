@@ -22,7 +22,6 @@ extern "C" {
 
 struct pt_f16_t { uint16_t bits; }; // IEEE 754 754-2008 binary 16 (half precision float)
 pt_static_assert(sizeof(struct pt_f16_t) == 2);
-
 #define pt_f16_c(x) ((struct pt_f16_t){.bits=(x)&0xffff})
 #define PT_F16_E pt_f16_c(0x4170)
 #define PT_F16_EPSILON pt_f16_c(0x1400)
@@ -154,7 +153,22 @@ static PT_AINLINE struct pt_bf16_t pt_blas_cvt_f32_to_bf16_sca(const float x) { 
 }
 
 static inline void pt_blas_cvt_f16_to_f32_vec(const pt_dim_t n, float *const o, const struct pt_f16_t *const x) {
-    for (pt_dim_t i = 0; i < n; ++i) {
+    pt_dim_t i = 0;
+#ifdef __ARM_NEON
+    for (; i+7 < n; i += 8) {
+        const float16x8_t v0 = vld1q_f16((const float16_t *)(x+i));
+        const float32x4_t f0 = vcvt_f32_f16(vget_low_f16(v0));
+        const float32x4_t f1 = vcvt_f32_f16(vget_high_f16(v0));
+        vst1q_f32(o+i, f0);
+        vst1q_f32(o+i+4, f1);
+    }
+    for (; i+3 < n; i += 4) {
+        float16x4_t v = vld1_f16((const float16_t *)(x+i));
+        float32x4_t f = vcvt_f32_f16(v);
+        vst1q_f32(o+i, f);
+    }
+#endif
+    for (; i < n; ++i) {
         o[i] = pt_blas_cvt_f16_to_f32_sca(x[i]);
     }
 }
@@ -180,11 +194,24 @@ static inline void pt_blas_cvt_f32_to_f16_vec(const pt_dim_t n, struct pt_f16_t 
             )
         );
     }
-#else
+#elif defined (__ARM_NEON)
+    for (; i+7 < n; i += 8) {
+        const float32x4_t v0 = vld1q_f32(x+i);
+        const float32x4_t v1 = vld1q_f32(x+i+4);
+        const float16x4_t h0 = vcvt_f16_f32(v0);
+        const float16x4_t h1 = vcvt_f16_f32(v1);
+        vst1_f16((float16_t *)(o+i), h0);
+        vst1_f16((float16_t *)(o+i+4), h1);
+    }
+    for (; i+3 < n; i += 4) {
+        const float32x4_t v = vld1q_f32(x+i);
+        const float16x4_t h = vcvt_f16_f32(v);
+        vst1_f16((float16_t *)(o+i), h);
+    }
+#endif
     for (; i < n; ++i) {
         o[i] = pt_blas_cvt_f32_to_f16_sca(x[i]);
     }
-#endif
 }
 
 static inline void pt_blas_cvt_bf16_to_f32_vec(const pt_dim_t n, float *const o, const struct pt_bf16_t *const x) {
@@ -214,17 +241,46 @@ static inline void pt_blas_cvt_bf16_to_f32_vec(const pt_dim_t n, float *const o,
             )
         );
     }
-#else
+#elif defined(__ARM_NEON)
+    for (; i+7 < n; i += 8) {
+        const uint16x8_t vbf16 = vld1q_u16((const uint16_t *)(x + i));
+        const uint32x4_t t_lo = vshlq_n_u32(vmovl_u16(vget_low_u16(vbf16)), 16);
+        const uint32x4_t t_hi = vshlq_n_u32(vmovl_u16(vget_high_u16(vbf16)), 16);
+        const float32x4_t f32_lo = vreinterpretq_f32_u32(t_lo);
+        const float32x4_t f32_hi = vreinterpretq_f32_u32(t_hi);
+        vst1q_f32(o+i, f32_lo);
+        vst1q_f32(o+i+4, f32_hi);
+    }
+    for (; i+3 < n; i += 4) {
+        const uint16x4_t vbf16 = vld1_u16((const uint16_t *)(x + i));
+        const uint32x4_t tx = vshlq_n_u32(vmovl_u16(vbf16), 16);
+        const float32x4_t f32 = vreinterpretq_f32_u32(tx);
+        vst1q_f32(o+i, f32);
+    }
+#endif
     for (; i < n; ++i) {
         o[i] = pt_blas_cvt_bf16_to_f32_sca(x[i]);
     }
-#endif
 }
 
 static inline void pt_blas_cvt_f32_to_bf16_vec(const pt_dim_t n, struct pt_bf16_t *const o, const float *const x) {
     for (pt_dim_t i = 0; i < n; ++i) {
         o[i] = pt_blas_cvt_f32_to_bf16_sca(x[i]);
     }
+}
+
+static PT_AINLINE bool pt_f16_cmp_eps(const struct pt_f16_t a, const struct pt_f16_t b) {
+    const float xi1 = pt_blas_cvt_f16_to_f32_sca(a);
+    const float xi2 = pt_blas_cvt_f16_to_f32_sca(b);
+    const float eps = pt_blas_cvt_f16_to_f32_sca(PT_F16_EPSILON);
+    return fabsf(xi1 - xi2) < eps; // |ξ1 - ξ2| < ε
+}
+
+static PT_AINLINE bool pt_bf16_cmp_eps(const struct pt_bf16_t a, const struct pt_bf16_t b) {
+    const float xi1 = pt_blas_cvt_bf16_to_f32_sca(a);
+    const float xi2 = pt_blas_cvt_bf16_to_f32_sca(b);
+    const float eps = pt_blas_cvt_bf16_to_f32_sca(PT_BF16_EPSILON);
+    return fabsf(xi1 - xi2) < eps; // |ξ1 - ξ2| < ε
 }
 
 #ifdef __cplusplus
