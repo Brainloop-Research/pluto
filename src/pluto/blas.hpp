@@ -21,7 +21,7 @@ namespace pluto {
         constexpr f16() noexcept = default;
         inline explicit f16(const float x) noexcept {
             #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
-                const __fp16 f16 = static_cast<__fp16>(x);
+                const auto f16 = static_cast<__fp16>(x);
                 bits = *reinterpret_cast<const std::uint16_t*>(&f16);
             #else
                 float base = (std::abs(x) * 0x1.0p+112f) * 0x1.0p-110f;  // Normalize |x|
@@ -61,6 +61,67 @@ namespace pluto {
             #endif
         }
 
+        static inline auto cvt_f16_to_f32_vec(const std::int64_t n, float* const o, const f16* const x) noexcept -> void {
+            std::int64_t i {};
+            #ifdef __ARM_NEON
+                for (; i+7 < n; i += 8) {
+                    const float16x8_t v0 {vld1q_f16(reinterpret_cast<const float16_t*>(x+i))};
+                    const float32x4_t f0 {vcvt_f32_f16(vget_low_f16(v0))};
+                    const float32x4_t f1 {vcvt_f32_f16(vget_high_f16(v0))};
+                    vst1q_f32(o+i, f0);
+                    vst1q_f32(o+i+4, f1);
+                }
+                for (; i+3 < n; i += 4) {
+                    float16x4_t v {vld1_f16(reinterpret_cast<const float16_t*>(x+i))};
+                    float32x4_t f {vcvt_f32_f16(v)};
+                    vst1q_f32(o+i, f);
+                }
+            #endif
+            for (; i < n; ++i) {
+                o[i] = static_cast<float>(x[i]);
+            }
+        }
+
+        static inline auto cvt_f32_to_f16_vec(const std::int64_t n, f16* const o, const float* const x) noexcept -> void {
+            std::int64_t i {};
+            #ifdef __F16C__
+                for (; i+7 < n; i += 8) {
+                    _mm_storeu_si128(
+                        reinterpret_cast<__m128i*>(o+i),
+                        _mm256_cvtps_ph(
+                            _mm256_loadu_ps(x+i),
+                            _MM_FROUND_TO_NEAREST_INT
+                        )
+                    );
+                }
+                for(; i+3 < n; i += 4) {
+                    _mm_storel_epi64(
+                        reinterpret_cast<__m128i*>(o+i),
+                        _mm_cvtps_ph(
+                            _mm_loadu_ps(x+i),
+                            _MM_FROUND_TO_NEAREST_INT
+                        )
+                    );
+                }
+            #elif defined (__ARM_NEON)
+                for (; i+7 < n; i += 8) {
+                    const float32x4_t v0 {vld1q_f32(x+i)};
+                    const float32x4_t v1 {vld1q_f32(x+i+4)};
+                    const float16x4_t h0 {vcvt_f16_f32(v0)};
+                    const float16x4_t h1 {vcvt_f16_f32(v1)};
+                    vst1_f16(reinterpret_cast<float16_t*>(o+i), h0);
+                    vst1_f16(reinterpret_cast<float16_t*>(o+i+4), h1);
+                }
+                for (; i+3 < n; i += 4) {
+                    const float32x4_t v {vld1q_f32(x+i)};
+                    const float16x4_t h {vcvt_f16_f32(v)};
+                    vst1_f16(reinterpret_cast<float16_t*>(o+i), h);
+                }
+            #endif
+            for (; i < n; ++i) {
+                o[i] = f16{x[i]};
+            }
+        }
         [[nodiscard]] static inline auto e() noexcept -> f16 { return f16{0x4170}; }
         [[nodiscard]] static inline auto eps() noexcept -> f16 { return f16{0x1400}; }
         [[nodiscard]] static inline auto inf() noexcept -> f16 { return f16{0x7c00}; }
@@ -83,6 +144,16 @@ namespace pluto {
         [[nodiscard]] static inline auto pi() noexcept -> f16 { return f16{0x4248}; }
         [[nodiscard]] static inline auto sqrt_2() noexcept -> f16 { return f16{0x3da8}; }
         [[nodiscard]] static inline auto zero() noexcept -> f16 { return f16{0x0000}; }
+
+        inline auto operator ==(const f16 rhs) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
+            const auto xi1 = static_cast<float>(*this);
+            const auto xi2 = static_cast<float>(rhs);
+            const auto epsi = static_cast<float>(eps());
+            return std::abs(xi1 - xi2) < epsi;
+        }
+        inline auto operator !=(const f16 rhs) const noexcept -> bool {
+            return !(*this == rhs);
+        }
     };
     static_assert(sizeof(f16) == 2);
 
@@ -107,6 +178,62 @@ namespace pluto {
             return *reinterpret_cast<const float*>(&tmp);
         }
 
+        static inline auto cvt_bf16_to_f32_vec(const std::int64_t n, float* const o, const bf16* const x) noexcept -> void {
+            std::int64_t i {};
+            #ifdef __AVX512F__
+                for (; i+15 < n; i += 16) {
+                    _mm512_storeu_ps(o+i,
+                        _mm512_castsi512_ps(
+                            _mm512_slli_epi32(
+                                _mm512_cvtepu16_epi32(
+                                    _mm256_loadu_si256(reinterpret_cast<const __m256i*>(x+i))
+                                ), 16
+                            )
+                        )
+                    );
+                }
+            #elif defined(__AVX2__)
+                for (; i+7 < n; i += 8) {
+                    _mm256_storeu_ps(
+                        o+i,
+                        _mm256_castsi256_ps(
+                            _mm256_slli_epi32(
+                                _mm256_cvtepu16_epi32(
+                                    _mm_loadu_si128(reinterpret_cast<const __m128i*>(x+i))
+                                ), 16
+                            )
+                        )
+                    );
+                }
+            #elif defined(__ARM_NEON)
+                for (; i+7 < n; i += 8) {
+                    const uint16x8_t vbf16 {vld1q_u16(reinterpret_cast<const std::uint16_t*>(x+i))};
+                    const uint32x4_t t_lo {vshlq_n_u32(vmovl_u16(vget_low_u16(vbf16)), 16)};
+                    const uint32x4_t t_hi {vshlq_n_u32(vmovl_u16(vget_high_u16(vbf16)), 16)};
+                    const float32x4_t f32_lo {vreinterpretq_f32_u32(t_lo)};
+                    const float32x4_t f32_hi {vreinterpretq_f32_u32(t_hi)};
+                    vst1q_f32(o+i, f32_lo);
+                    vst1q_f32(o+i+4, f32_hi);
+                }
+                for (; i+3 < n; i += 4) {
+                    const uint16x4_t vbf16 {vld1_u16(reinterpret_cast<const std::uint16_t*>(x+i))};
+                    const uint32x4_t tx {vshlq_n_u32(vmovl_u16(vbf16), 16)};
+                    const float32x4_t f32 {vreinterpretq_f32_u32(tx)};
+                    vst1q_f32(o+i, f32);
+                }
+            #endif
+            for (; i < n; ++i) {
+                o[i] = static_cast<float>(x[i]);
+            }
+        }
+
+        static inline auto cvt_f32_to_bf16_vec(const std::int64_t n, bf16* const o, const float* const x) noexcept -> void {
+            std::int64_t i {};
+            for (; i < n; ++i) {
+                o[i] = bf16{x[i]};
+            }
+        }
+
         [[nodiscard]] static inline auto eps() noexcept -> bf16 { return bf16{0x3c00}; }
         [[nodiscard]] static inline auto inf() noexcept -> bf16 { return bf16{0x7f80}; }
         [[nodiscard]] static inline auto max() noexcept -> bf16 { return bf16{0x7f7f}; }
@@ -129,6 +256,16 @@ namespace pluto {
         [[nodiscard]] static inline auto log2_e() noexcept -> bf16 { return bf16{0x3fb9}; }
         [[nodiscard]] static inline auto log2_10() noexcept -> bf16 { return bf16{0x4055}; }
         [[nodiscard]] static inline auto sqrt_2() noexcept -> bf16 { return bf16{0x3fb5}; }
+
+        inline auto operator ==(const bf16 rhs) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
+            const auto xi1 = static_cast<float>(*this);
+            const auto xi2 = static_cast<float>(rhs);
+            const auto epsi = static_cast<float>(eps());
+            return std::abs(xi1 - xi2) < epsi;
+        }
+        inline auto operator !=(const bf16 rhs) const noexcept -> bool {
+            return !(*this == rhs);
+        }
     };
     static_assert(sizeof(bf16) == 2);
 }
