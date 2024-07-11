@@ -6,4 +6,6 @@
 
 #include <pluto.h>
 
+#include <pluto/blas.hpp>
+
 #include <gtest/gtest.h>
