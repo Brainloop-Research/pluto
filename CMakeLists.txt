@@ -2,9 +2,10 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-project(pluto LANGUAGES C)
+project(pluto LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 20)
 
 option(PLUTO_BUILD_TESTS "Build tests" ON)
 

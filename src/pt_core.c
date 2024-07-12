@@ -219,7 +219,7 @@ void *pt_ctx_pool_alloc(struct pt_ctx_t *const ctx, const size_t len) {
         }
         pt_ctx_push_chunk(ctx);
 #if PT_CTX_POOL_LOG_ENABLE
-        pt_log_error(
+        printf(
             "Pool chunk exhausted - requested %.03fKiB\n"
             "Increase pool chunk size for best performance, current pool chunk size: %.03fGiB, total allocated: %.03fGiB",
             (double)len/(double)(1<<10),
