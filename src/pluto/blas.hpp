@@ -19,6 +19,7 @@ namespace pluto {
         std::uint16_t bits {};
 
         constexpr f16() noexcept = default;
+        constexpr explicit f16(const int x) noexcept : bits{static_cast<std::uint16_t>(x)} {}
         inline explicit f16(const float x) noexcept {
             #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
                 const auto f16 = static_cast<__fp16>(x);
@@ -122,28 +123,28 @@ namespace pluto {
                 o[i] = f16{x[i]};
             }
         }
-        [[nodiscard]] static inline auto e() noexcept -> f16 { return f16{0x4170}; }
-        [[nodiscard]] static inline auto eps() noexcept -> f16 { return f16{0x1400}; }
-        [[nodiscard]] static inline auto inf() noexcept -> f16 { return f16{0x7c00}; }
-        [[nodiscard]] static inline auto ln_10() noexcept -> f16 { return f16{0x409b}; }
-        [[nodiscard]] static inline auto ln_2() noexcept -> f16 { return f16{0x398c}; }
-        [[nodiscard]] static inline auto log10_2() noexcept -> f16 { return f16{0x34d1}; }
-        [[nodiscard]] static inline auto log10_e() noexcept -> f16 { return f16{0x36f3}; }
-        [[nodiscard]] static inline auto log2_10() noexcept -> f16 { return f16{0x42a5}; }
-        [[nodiscard]] static inline auto log2_e() noexcept -> f16 { return f16{0x3dc5}; }
-        [[nodiscard]] static inline auto max() noexcept -> f16 { return f16{0x7bff}; }
-        [[nodiscard]] static inline auto max_subnormal() noexcept -> f16 { return f16{0x03ff}; }
-        [[nodiscard]] static inline auto min() noexcept -> f16 { return f16{0xfbff}; }
-        [[nodiscard]] static inline auto min_pos() noexcept -> f16 { return f16{0x0400}; }
-        [[nodiscard]] static inline auto min_pos_subnormal() noexcept -> f16 { return f16{0x0001}; }
-        [[nodiscard]] static inline auto nan() noexcept -> f16 { return f16{0x7e00}; }
-        [[nodiscard]] static inline auto neg_inf() noexcept -> f16 { return f16{0xfc00}; }
-        [[nodiscard]] static inline auto neg_one() noexcept -> f16 { return f16{0xbc00}; }
-        [[nodiscard]] static inline auto neg_zero() noexcept -> f16 { return f16{0x8000}; }
-        [[nodiscard]] static inline auto one() noexcept -> f16 { return f16{0x3c00}; }
-        [[nodiscard]] static inline auto pi() noexcept -> f16 { return f16{0x4248}; }
-        [[nodiscard]] static inline auto sqrt_2() noexcept -> f16 { return f16{0x3da8}; }
-        [[nodiscard]] static inline auto zero() noexcept -> f16 { return f16{0x0000}; }
+        [[nodiscard]] static constexpr auto e() noexcept -> f16 { return f16{0x4170}; }
+        [[nodiscard]] static constexpr auto eps() noexcept -> f16 { return f16{0x1400}; }
+        [[nodiscard]] static constexpr auto inf() noexcept -> f16 { return f16{0x7c00}; }
+        [[nodiscard]] static constexpr auto ln_10() noexcept -> f16 { return f16{0x409b}; }
+        [[nodiscard]] static constexpr auto ln_2() noexcept -> f16 { return f16{0x398c}; }
+        [[nodiscard]] static constexpr auto log10_2() noexcept -> f16 { return f16{0x34d1}; }
+        [[nodiscard]] static constexpr auto log10_e() noexcept -> f16 { return f16{0x36f3}; }
+        [[nodiscard]] static constexpr auto log2_10() noexcept -> f16 { return f16{0x42a5}; }
+        [[nodiscard]] static constexpr auto log2_e() noexcept -> f16 { return f16{0x3dc5}; }
+        [[nodiscard]] static constexpr auto max() noexcept -> f16 { return f16{0x7bff}; }
+        [[nodiscard]] static constexpr auto max_subnormal() noexcept -> f16 { return f16{0x03ff}; }
+        [[nodiscard]] static constexpr auto min() noexcept -> f16 { return f16{0xfbff}; }
+        [[nodiscard]] static constexpr auto min_pos() noexcept -> f16 { return f16{0x0400}; }
+        [[nodiscard]] static constexpr auto min_pos_subnormal() noexcept -> f16 { return f16{0x0001}; }
+        [[nodiscard]] static constexpr auto nan() noexcept -> f16 { return f16{0x7e00}; }
+        [[nodiscard]] static constexpr auto neg_inf() noexcept -> f16 { return f16{0xfc00}; }
+        [[nodiscard]] static constexpr auto neg_one() noexcept -> f16 { return f16{0xbc00}; }
+        [[nodiscard]] static constexpr auto neg_zero() noexcept -> f16 { return f16{0x8000}; }
+        [[nodiscard]] static constexpr auto one() noexcept -> f16 { return f16{0x3c00}; }
+        [[nodiscard]] static constexpr auto pi() noexcept -> f16 { return f16{0x4248}; }
+        [[nodiscard]] static constexpr auto sqrt_2() noexcept -> f16 { return f16{0x3da8}; }
+        [[nodiscard]] static constexpr auto zero() noexcept -> f16 { return f16{0x0000}; }
 
         inline auto operator ==(const f16 rhs) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
             const auto xi1 = static_cast<float>(*this);
@@ -154,6 +155,14 @@ namespace pluto {
         inline auto operator !=(const f16 rhs) const noexcept -> bool {
             return !(*this == rhs);
         }
+        inline auto operator ==(const float xi2) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
+            const auto xi1 = static_cast<float>(*this);
+            const auto epsi = static_cast<float>(eps());
+            return std::abs(xi1 - xi2) < epsi;
+        }
+        inline auto operator !=(const float rhs) const noexcept -> bool {
+            return !(*this == rhs);
+        }
     };
     static_assert(sizeof(f16) == 2);
 
@@ -162,6 +171,7 @@ namespace pluto {
         std::uint16_t bits {};
 
         constexpr bf16() noexcept = default;
+        constexpr explicit bf16(const int x) noexcept : bits{static_cast<std::uint16_t>(x)} {}
         inline explicit bf16(const float x) noexcept {
             if (((*reinterpret_cast<const std::uint32_t*>(&x)) & 0x7fffffff) > 0x7f800000) { // NaN
                 bits = 64 | ((*(uint32_t *)&x)>>16); // quiet NaNs only
@@ -234,28 +244,28 @@ namespace pluto {
             }
         }
 
-        [[nodiscard]] static inline auto eps() noexcept -> bf16 { return bf16{0x3c00}; }
-        [[nodiscard]] static inline auto inf() noexcept -> bf16 { return bf16{0x7f80}; }
-        [[nodiscard]] static inline auto max() noexcept -> bf16 { return bf16{0x7f7f}; }
-        [[nodiscard]] static inline auto min() noexcept -> bf16 { return bf16{0xff7f}; }
-        [[nodiscard]] static inline auto min_pos() noexcept -> bf16 { return bf16{0x0080}; }
-        [[nodiscard]] static inline auto nan() noexcept -> bf16 { return bf16{0x7FC0}; }
-        [[nodiscard]] static inline auto neg_inf() noexcept -> bf16 { return bf16{0xff80}; }
-        [[nodiscard]] static inline auto min_pos_subnormal() noexcept -> bf16 { return bf16{0x0001}; }
-        [[nodiscard]] static inline auto max_subnormal() noexcept -> bf16 { return bf16{0x007f}; }
-        [[nodiscard]] static inline auto one() noexcept -> bf16 { return bf16{0x3f80}; }
-        [[nodiscard]] static inline auto zero() noexcept -> bf16 { return bf16{0x0000}; }
-        [[nodiscard]] static inline auto neg_zero() noexcept -> bf16 { return bf16{0x8000}; }
-        [[nodiscard]] static inline auto neg_one() noexcept -> bf16 { return bf16{0xbf80}; }
-        [[nodiscard]] static inline auto e() noexcept -> bf16 { return bf16{0x402e}; }
-        [[nodiscard]] static inline auto pi() noexcept -> bf16 { return bf16{0x4049}; }
-        [[nodiscard]] static inline auto ln_10() noexcept -> bf16 { return bf16{0x4013}; }
-        [[nodiscard]] static inline auto ln_2() noexcept -> bf16 { return bf16{0x3f31}; }
-        [[nodiscard]] static inline auto log10_e() noexcept -> bf16 { return bf16{0x3ede}; }
-        [[nodiscard]] static inline auto log10_2() noexcept -> bf16 { return bf16{0x3e9a}; }
-        [[nodiscard]] static inline auto log2_e() noexcept -> bf16 { return bf16{0x3fb9}; }
-        [[nodiscard]] static inline auto log2_10() noexcept -> bf16 { return bf16{0x4055}; }
-        [[nodiscard]] static inline auto sqrt_2() noexcept -> bf16 { return bf16{0x3fb5}; }
+        [[nodiscard]] static constexpr auto eps() noexcept -> bf16 { return bf16{0x3c00}; }
+        [[nodiscard]] static constexpr auto inf() noexcept -> bf16 { return bf16{0x7f80}; }
+        [[nodiscard]] static constexpr auto max() noexcept -> bf16 { return bf16{0x7f7f}; }
+        [[nodiscard]] static constexpr auto min() noexcept -> bf16 { return bf16{0xff7f}; }
+        [[nodiscard]] static constexpr auto min_pos() noexcept -> bf16 { return bf16{0x0080}; }
+        [[nodiscard]] static constexpr auto nan() noexcept -> bf16 { return bf16{0x7FC0}; }
+        [[nodiscard]] static constexpr auto neg_inf() noexcept -> bf16 { return bf16{0xff80}; }
+        [[nodiscard]] static constexpr auto min_pos_subnormal() noexcept -> bf16 { return bf16{0x0001}; }
+        [[nodiscard]] static constexpr auto max_subnormal() noexcept -> bf16 { return bf16{0x007f}; }
+        [[nodiscard]] static constexpr auto one() noexcept -> bf16 { return bf16{0x3f80}; }
+        [[nodiscard]] static constexpr auto zero() noexcept -> bf16 { return bf16{0x0000}; }
+        [[nodiscard]] static constexpr auto neg_zero() noexcept -> bf16 { return bf16{0x8000}; }
+        [[nodiscard]] static constexpr auto neg_one() noexcept -> bf16 { return bf16{0xbf80}; }
+        [[nodiscard]] static constexpr auto e() noexcept -> bf16 { return bf16{0x402e}; }
+        [[nodiscard]] static constexpr auto pi() noexcept -> bf16 { return bf16{0x4049}; }
+        [[nodiscard]] static constexpr auto ln_10() noexcept -> bf16 { return bf16{0x4013}; }
+        [[nodiscard]] static constexpr auto ln_2() noexcept -> bf16 { return bf16{0x3f31}; }
+        [[nodiscard]] static constexpr auto log10_e() noexcept -> bf16 { return bf16{0x3ede}; }
+        [[nodiscard]] static constexpr auto log10_2() noexcept -> bf16 { return bf16{0x3e9a}; }
+        [[nodiscard]] static constexpr auto log2_e() noexcept -> bf16 { return bf16{0x3fb9}; }
+        [[nodiscard]] static constexpr auto log2_10() noexcept -> bf16 { return bf16{0x4055}; }
+        [[nodiscard]] static constexpr auto sqrt_2() noexcept -> bf16 { return bf16{0x3fb5}; }
 
         inline auto operator ==(const bf16 rhs) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
             const auto xi1 = static_cast<float>(*this);
@@ -264,6 +274,14 @@ namespace pluto {
             return std::abs(xi1 - xi2) < epsi;
         }
         inline auto operator !=(const bf16 rhs) const noexcept -> bool {
+            return !(*this == rhs);
+        }
+        inline auto operator ==(const float xi2) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
+            const auto xi1 = static_cast<float>(*this);
+            const auto epsi = static_cast<float>(eps());
+            return std::abs(xi1 - xi2) < epsi;
+        }
+        inline auto operator !=(const float rhs) const noexcept -> bool {
             return !(*this == rhs);
         }
     };
