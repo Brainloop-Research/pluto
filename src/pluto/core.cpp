@@ -20,7 +20,7 @@ namespace pluto {
 
     }
 
-    auto context::pool_alloc_raw(std::size_t size) -> void* {
+    auto context::pool_alloc_raw(const std::size_t size) -> void* {
         assert(size && size <= std::numeric_limits<std::ptrdiff_t>::max());
         if (m_delta - m_chunks.back().get() < static_cast<std::ptrdiff_t>(size)) {
             if (m_chunk_size < size) { // Increase the chunk size if it's too small to accommodate the requested length
