@@ -23,7 +23,7 @@ namespace pluto {
         constexpr f16() noexcept = default;
         constexpr explicit f16(const int x) noexcept : bits{static_cast<std::uint16_t>(x)} {}
         inline explicit f16(const float x) noexcept {
-            #if !defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
+            #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
                 const auto f16 = static_cast<__fp16>(x);
                 bits = *reinterpret_cast<const std::uint16_t*>(&f16);
             #elif defined(__F16C__) // Fast hardware path
