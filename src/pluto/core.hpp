@@ -60,14 +60,17 @@ namespace pluto {
         auto operator=(context&&) -> context& = delete;
         ~context();
 
-        [[nodiscard]] auto pool_alloc(std::size_t size) -> void*;
-        [[nodiscard]] auto pool_alloc_aligned(std::size_t size, std::size_t align) -> void*;
+        [[nodiscard]] auto pool_alloc_raw(std::size_t size) -> void*;
+        [[nodiscard]] auto pool_alloc_raw_aligned(std::size_t size, std::size_t align) -> void*;
 
-        template <typename T> requires std::is_standard_layout_v<T>
-        [[nodiscard]] auto pool_alloc() -> T* {
-            if constexpr (alignof(T) <= alignof(std::max_align_t) && !(alignof(T) & (alignof(T)-1)))
-                return reinterpret_cast<T*>(pool_alloc(sizeof(T)));
-            else return reinterpret_cast<T*>(pool_alloc_aligned(sizeof(T), alignof(T)));
+        template <typename T, typename... Args>
+            requires std::is_standard_layout_v<T> && std::is_default_constructible_v<T>
+        [[nodiscard]] auto pool_alloc(Args&&... args) -> T* {
+            T* obj;
+            if constexpr (alignof(T) <= alignof(std::max_align_t) && !(alignof(T) & (alignof(T)-1))) {
+                obj = reinterpret_cast<T*>(pool_alloc_raw(sizeof(T)));
+            } else { obj = reinterpret_cast<T*>(pool_alloc_raw_aligned(sizeof(T), alignof(T))); }
+            return new(obj) T{std::forward<Args>(args)...};
         }
 
     private:

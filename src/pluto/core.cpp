@@ -20,7 +20,7 @@ namespace pluto {
 
     }
 
-    auto context::pool_alloc(const std::size_t size) -> void* {
+    auto context::pool_alloc_raw(std::size_t size) -> void* {
         assert(size && size <= std::numeric_limits<std::ptrdiff_t>::max());
         if (m_delta - m_chunks.back().get() < static_cast<std::ptrdiff_t>(size)) {
             if (m_chunk_size < size) { // Increase the chunk size if it's too small to accommodate the requested length
@@ -44,12 +44,12 @@ namespace pluto {
         return m_delta;
     }
 
-    auto context::pool_alloc_aligned(const std::size_t size, const std::size_t align) -> void* {
+    auto context::pool_alloc_raw_aligned(std::size_t size, std::size_t align) -> void* {
         assert(align && !(align & (align - 1))); // Alignment must be a power of 2
         const std::size_t a_mask {align - 1};
         return reinterpret_cast<void*>(
             reinterpret_cast<std::uintptr_t>(
-                pool_alloc(size+a_mask)
+                    pool_alloc_raw(size + a_mask)
             )+a_mask & ~a_mask
         );
     }
