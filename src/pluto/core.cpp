@@ -45,7 +45,7 @@ namespace pluto {
         return m_delta;
     }
 
-    auto context::pool_alloc_raw_aligned(std::size_t size, std::size_t align) -> void* {
+    auto context::pool_alloc_raw_aligned(const std::size_t size, const std::size_t align) -> void* {
         assert(align && !(align & (align - 1))); // Alignment must be a power of 2
         const std::size_t a_mask {align - 1};
         return reinterpret_cast<void*>(
