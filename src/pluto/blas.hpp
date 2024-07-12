@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <array>
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
@@ -251,6 +252,19 @@ namespace pluto {
 
         static inline auto cvt_f32_to_bf16_vec(const std::int64_t n, bf16* const o, const float* const x) noexcept -> void {
             std::int64_t i {};
+            #ifdef __AVX512BF16__
+                for (; i+31 < n; i += 32) {
+                    _mm512_storeu_si512(
+                        reinterpret_cast<__m512i*>(y+i),
+                        __m512i{
+                            _mm512_cvtne2ps_pbh(
+                                _mm512_loadu_ps(x+i+16),
+                                _mm512_loadu_ps(x+i)
+                            )
+                        }
+                    );
+                }
+            #endif
             for (; i < n; ++i) {
                 o[i] = bf16{x[i]};
             }
@@ -298,4 +312,47 @@ namespace pluto {
         }
     };
     static_assert(sizeof(bf16) == 2);
+
+    namespace vblas {
+        template <typename T>
+        inline auto dot(const std::int64_t n, const T* const x, const T* const y) noexcept -> T;
+
+        template <>
+        inline auto dot(const std::int64_t n, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> float {
+        #ifdef __ARM_NEON
+            constexpr std::int64_t step {16};
+            const std::int64_t k {n & -step};
+            std::array<float32x4_t, 4> acc {
+                vdupq_n_f32(0),
+                vdupq_n_f32(0),
+                vdupq_n_f32(0),
+                vdupq_n_f32(0)
+            };
+            std::array<float32x4_t, 4> vx; // NOLINT(*-pro-type-member-init)
+            std::array<float32x4_t, 4> vy; // NOLINT(*-pro-type-member-init)
+            for (std::int64_t i {}; i < k; i += step) { // Vectorize
+                #pragma GCC unroll 4
+                for (std::int64_t j {}; j < 4; ++j) { // Unroll
+                    vx[j] = vld1q_f32(x+i+j*4);
+                    vy[j] = vld1q_f32(y+i+j*4);
+                    acc[j] = vfmaq_f32(acc[j], vx[j], vy[j]); // Fused multiply-accumulate
+                }
+            }
+            acc[1] = vaddq_f32(acc[1], acc[3]); // Reduce to scalar with horizontal sum
+            acc[0] = vaddq_f32(acc[0], acc[2]); // Reduce to scalar with horizontal sum
+            acc[0] = vaddq_f32(acc[0], acc[1]); // Reduce to scalar with horizontal sum
+            float sum {vaddvq_f32(acc[0])}; // Reduce to scalar with horizontal sum
+            for (std::int64_t i {k}; i < n; ++i) { // Process leftovers scalar-wise
+                sum += x[i] * y[i];
+            }
+            return sum;
+        #else
+            double sum {}; // Higher precision accumulator
+            for (std::int64_t i {}; i < n; ++i) {
+                sum += static_cast<double>(x[i] * y[i]);
+            }
+            return static_cast<float>(sum);
+        #endif
+        }
+    }
 }

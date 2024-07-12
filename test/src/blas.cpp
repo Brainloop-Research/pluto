@@ -1,5 +1,6 @@
 // (c) 2024 Brainloop Research. <mario.sieg.64@gmail.com>
 
+#include <numeric>
 #include "prelude.hpp"
 
 using namespace pluto;
@@ -136,4 +137,15 @@ GTEST_TEST(blas, cvt_f32_to_bf16_vec) {
                              - static_cast<float>(bf16_out[i]))
                     < static_cast<float>(bf16::eps())); // |ξ1 - ξ2| < ε
     }
+}
+
+GTEST_TEST(vblas, dot_f32) {
+    std::vector<float> data {};
+    data.reserve(325);
+    for (int i {0}; i < data.capacity(); ++i) {
+        data.emplace_back(static_cast<float>(i));
+    }
+    const float dot = vblas::dot(data.size(), data.data(), data.data());
+    const float dot_ref = std::inner_product(data.begin(), data.end(), data.begin(), 0.0f);
+    ASSERT_FLOAT_EQ(dot, dot_ref);
 }
