@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
+#include <cmath>
 
 #ifdef __ARM_NEON
 #   include <arm_neon.h>
@@ -21,29 +23,39 @@ namespace pluto {
         constexpr f16() noexcept = default;
         constexpr explicit f16(const int x) noexcept : bits{static_cast<std::uint16_t>(x)} {}
         inline explicit f16(const float x) noexcept {
-            #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
+            #if !defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
                 const auto f16 = static_cast<__fp16>(x);
                 bits = *reinterpret_cast<const std::uint16_t*>(&f16);
-            #else
+            #elif defined(__F16C__) // Fast hardware path
+            #   ifdef _MSC_VER
+                    bits = static_cast<std::uint16_t>(_mm_extract_epi16(_mm_cvtps_ph(_mm_set_ss(x), 0), 0));
+            #   else
+                    bits = static_cast<std::uint16_t>(_cvtss_sh(x, 0));
+            #   endif
+            #else // Slow software emulated path
                 float base = (std::abs(x) * 0x1.0p+112f) * 0x1.0p-110f;  // Normalize |x|
                 const std::uint32_t w = *reinterpret_cast<const std::uint32_t*>(&x);
                 const std::uint32_t shl1_w = w + w;
                 const std::uint32_t sign = w & 0x80000000u;
-                std::uint32_t bias = shl1_w & 0xff000000u; // Extract bias
-                if (bias < 0x71000000u) bias = 0x71000000u; // Apply minimum bias for subnormals
-                bias = (bias>>1) + 0x07800000u; // Adjust bias for half precision
-                base = *reinterpret_cast<float*>(&bias) + base;
+                const std::uint32_t bias = 0x07800000u+(std::max(0x71000000u, shl1_w&0xff000000u)>>1); // Extract bias
+                base = base+*reinterpret_cast<const float*>(&bias);
                 const std::uint32_t rbits = *reinterpret_cast<const std::uint32_t*>(&base); // Extract bits
                 const std::uint32_t exp_bits = (rbits>>13) & 0x00007c00u; // Extract exponent bits
                 const std::uint32_t mant_bits = rbits & 0x00000fffu; // Extract mantissa bits
                 const std::uint32_t nonsign = exp_bits + mant_bits; // Combine exponent and mantissa bits
-                bits = (sign>>16) | (shl1_w > 0xff000000 ? 0x7e00 : nonsign); // Pack full bit pattern
+                bits = (sign>>16)|(shl1_w > 0xff000000 ? 0x7e00 : nonsign); // Pack full bit pattern
             #endif
         }
 
         inline explicit operator float() const noexcept {
             #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
                 return static_cast<float>(*reinterpret_cast<const __fp16*>(&bits));
+            #elif defined(__F16C__) // Fast hardware path
+            #   ifdef _MSC_VER
+                    return static_cast<float>(_mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(bits))));
+            #   else
+                    return static_cast<float>(_cvtsh_ss(bits));
+            #   endif
             #else // Slow software emulated path
                 const std::uint32_t w = static_cast<std::uint32_t>(bits)<<16;
                 const std::uint32_t sign = w & 0x80000000u;
