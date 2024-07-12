@@ -314,22 +314,107 @@ namespace pluto {
     static_assert(sizeof(bf16) == 2);
 
     namespace vblas {
+        #define PT_X86_X64_USE_HADD
+
         template <typename T>
         inline auto dot(const std::int64_t n, const T* const x, const T* const y) noexcept -> T;
 
         template <>
         inline auto dot(const std::int64_t n, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> float {
-        #ifdef __ARM_NEON
+        #ifdef __AVX512F__
+            constexpr std::int64_t step {64};
+            const std::int64_t k {n & -step};
+            __m512 acc[4] = {_mm512_setzero_ps()};
+            __m512 vx[4];
+            __m512 vy[4];
+            for (std::int64_t i {}; i < k; i += step) {
+                #pragma GCC unroll 4
+                for (std::int64_t j {}; j < 4; ++j) {
+                    vx[j] = _mm512_loadu_ps(x+i+j*16);
+                    vy[j] = _mm512_loadu_ps(y+i+j*16);
+                    acc[j] = _mm512_fmadd_ps(vx[j], vy[j], acc[j]);
+                }
+            }
+            acc[1] = _mm512_add_ps(acc[1], acc[3]);
+            *acc = _mm512_add_ps(*acc, acc[2]);
+            *acc = _mm512_add_ps(*acc, acc[1]);
+            return _mm512_reduce_add_ps(*acc);
+        #elif defined(__AVX__) && defined(__FMA__)
+            constexpr std::int64_t step {32};
+            const std::int64_t k {n & -step};
+            __m256 acc[4] {_mm256_setzero_ps()};
+            __m256 vx[4];
+            __m256 vy[4];
+            for (std::int64_t i {}; i < k; i += step) {
+                #pragma GCC unroll 4
+                for (std::int64_t j {}; j < 4; ++j) {
+                    vx[j] = _mm256_loadu_ps(x + i + j * 8);
+                    vy[j] = _mm256_loadu_ps(y + i + j * 8);
+                    acc[j] = _mm256_fmadd_ps(vx[j], vy[j], acc[j]);
+                }
+            }
+            acc[1] = _mm256_add_ps(acc[1], acc[3]);
+            *acc = _mm256_add_ps(*acc, acc[2]);
+            *acc = _mm256_add_ps(*acc, acc[1]);
+            float sum;
+            #ifdef PT_X86_X64_USE_HADD
+                __m128 v0 {_mm_add_ps(_mm256_castps256_ps128(*acc), _mm256_extractf128_ps(*acc, 1))};
+                v0 = _mm_hadd_ps(v0, v0);
+                v0 = _mm_hadd_ps(v0, v0);
+                sum = _mm_cvtss_f32(v0);
+            #else
+                const __m128 xmm0 {_mm256_castps256_ps128(*acc)};
+                const __m128 xmm1 {_mm256_extractf128_ps(*acc, 1)};
+                const __m128 xmm2 {_mm_add_ps(xmm0, xmm1)};
+                __m128 xmm3 {_mm_movehdup_ps(xmm2)};
+                __m128 xmm4 {_mm_add_ps(xmm2, xmm3)};
+                xmm3 = _mm_movehl_ps(xmm3, xmm4);
+                xmm4 = _mm_add_ss(xmm4, xmm3);
+                sum = _mm_cvtss_f32(xmm4);
+            #endif
+            for (std::int64_t i{k}; i < n; ++i) { // Process leftovers scalar-wise
+                sum += x[i]*y[i];
+            }
+            return sum;
+        #elif defined(__SSE2__)
             constexpr std::int64_t step {16};
             const std::int64_t k {n & -step};
-            std::array<float32x4_t, 4> acc {
-                vdupq_n_f32(0),
-                vdupq_n_f32(0),
-                vdupq_n_f32(0),
-                vdupq_n_f32(0)
-            };
-            std::array<float32x4_t, 4> vx; // NOLINT(*-pro-type-member-init)
-            std::array<float32x4_t, 4> vy; // NOLINT(*-pro-type-member-init)
+            __m128 acc[4] {_mm_setzero_ps()};
+            __m128 vx[4];
+            __m128 vy[4];
+            for (std::int64_t i {}; i < k; i += step) {
+                #pragma GCC unroll 4
+                for (std::int64_t j {}; j < 4; ++j) {
+                    vx[j] = _mm_loadu_ps(x + i + j * 4);
+                    vy[j] = _mm_loadu_ps(y + i + j * 4);
+                    acc[j] = _mm_add_ps(acc[j], _mm_mul_ps(vx[j], vy[j]));
+                }
+            }
+            acc[1] = _mm_add_ps(acc[1], acc[3]);
+            *acc = _mm_add_ps(*acc, acc[2]);
+            *acc = _mm_add_ps(*acc, acc[1]);
+            float sum;
+            #if defined(PT_X86_X64_USE_HADD) && defined(__SSE3__)
+                *acc = _mm_hadd_ps(*acc, *acc);
+                *acc = _mm_hadd_ps(*acc, *acc);
+                sum = _mm_cvtss_f32(*acc);
+            #else
+                __m128 shuf {_mm_shuffle_ps(*acc, *acc, _MM_SHUFFLE(2, 3, 0, 1))};
+                __m128 sums {_mm_add_ps(*acc, shuf)};
+                shuf = _mm_movehl_ps(shuf, sums);
+                sums = _mm_add_ss(sums, shuf);
+                sum = _mm_cvtss_f32(sums);
+            #endif
+            for (std::int64_t i{k}; i < n; ++i) { // Process leftovers scalar-wise
+                sum += x[i]*y[i];
+            }
+            return sum;
+        #elif defined(__ARM_NEON)
+            constexpr std::int64_t step {16};
+            const std::int64_t k {n & -step};
+            float32x4_t acc[4] {vdupq_n_f32(0)};
+            float32x4_t vx[4]; // NOLINT(*-pro-type-member-init)
+            float32x4_t vy[4]; // NOLINT(*-pro-type-member-init)
             for (std::int64_t i {}; i < k; i += step) { // Vectorize
                 #pragma GCC unroll 4
                 for (std::int64_t j {}; j < 4; ++j) { // Unroll
@@ -339,11 +424,11 @@ namespace pluto {
                 }
             }
             acc[1] = vaddq_f32(acc[1], acc[3]); // Reduce to scalar with horizontal sum
-            acc[0] = vaddq_f32(acc[0], acc[2]); // Reduce to scalar with horizontal sum
-            acc[0] = vaddq_f32(acc[0], acc[1]); // Reduce to scalar with horizontal sum
-            float sum {vaddvq_f32(acc[0])}; // Reduce to scalar with horizontal sum
+            *acc = vaddq_f32(*acc, acc[2]); // Reduce to scalar with horizontal sum
+            *acc = vaddq_f32(*acc, acc[1]); // Reduce to scalar with horizontal sum
+            float sum {vaddvq_f32(*acc)}; // Reduce to scalar with horizontal sum
             for (std::int64_t i {k}; i < n; ++i) { // Process leftovers scalar-wise
-                sum += x[i] * y[i];
+                sum += x[i]*y[i];
             }
             return sum;
         #else

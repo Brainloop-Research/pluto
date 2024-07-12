@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdio>
 #include <memory>
 #include <vector>
@@ -48,7 +49,7 @@ namespace pluto {
     public:
         static constexpr std::size_t k_default_chunk_size {1<<20};
         static constexpr std::size_t k_default_chunk_cap {1<<3};
-        static constexpr bool k_enable_pool_memory_logging {true};
+        static constexpr bool k_enable_pool_memory_logging {false};
 
         explicit context(
             std::size_t chunk_size = k_default_chunk_size,

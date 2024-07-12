@@ -31,6 +31,7 @@ if (NOT WIN32)
         -pedantic
         -Wno-gnu-zero-variadic-macro-arguments
         -Wno-gnu-statement-expression
+        -Wno-error=strict-aliasing
     )
 endif()
 

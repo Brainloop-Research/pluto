@@ -49,9 +49,9 @@ namespace pluto {
         assert(align && !(align & (align - 1))); // Alignment must be a power of 2
         const std::size_t a_mask {align - 1};
         return reinterpret_cast<void*>(
-            reinterpret_cast<std::uintptr_t>(
+            (reinterpret_cast<std::uintptr_t>(
                     pool_alloc_raw(size + a_mask)
-            )+a_mask & ~a_mask
+            ) + a_mask) & ~a_mask
         );
     }
 
