@@ -7,5 +7,8 @@
 #include <pluto.h>
 
 #include <pluto/blas.hpp>
+#include <pluto/core.hpp>
+
+using namespace pluto;
 
 #include <gtest/gtest.h>

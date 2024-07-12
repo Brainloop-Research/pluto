@@ -2,24 +2,38 @@
 
 #include "prelude.hpp"
 
+#include <bit>
+
 GTEST_TEST(core, ctx_init_free) {
-    pt_ctx_t ctx {};
-    pt_ctx_init(&ctx, nullptr, 0);
-    ASSERT_NE(ctx.chunk_size, 0);
-    ASSERT_NE(ctx.chunks, nullptr);
-    ASSERT_EQ(ctx.chunks_len, 1);
-    pt_ctx_free(&ctx);
+    context ctx {};
+}
+
+GTEST_TEST(core, ctx_pool_alloc) {
+    context ctx {1, 1};
+    int *const x = static_cast<int *>(ctx.pool_alloc_raw(sizeof(int)));
+    *x = 42;
+    ASSERT_EQ(*x, 42);
+}
+
+GTEST_TEST(core, ctx_pool_alloc_aligned) {
+    context ctx {};
+    int *const x = static_cast<int *>(ctx.pool_alloc_raw_aligned(sizeof(int), 64));
+    *x = 42;
+    ASSERT_EQ(*x, 42);
+    ASSERT_EQ(0, std::bit_cast<std::uintptr_t>(x) % 64);
+    for (int i {1}; i < 1000; i <<= 1) {
+        int *const x = static_cast<int *>(ctx.pool_alloc_raw_aligned(sizeof(int), i));
+        ASSERT_EQ(0, std::bit_cast<std::uintptr_t>(x) % i);
+    }
 }
 
 GTEST_TEST(core, ctx_pool_exhaust_chunk) {
-    pt_ctx_t ctx {};
-    pt_ctx_init(&ctx, nullptr, 1);
+    context ctx {1, 1};
     for (int i {1}; i < 1000; ++i) {
-        int *const x = static_cast<int *>(pt_ctx_pool_alloc(&ctx, sizeof(int)*i));
+        int *const x = static_cast<int *>(ctx.pool_alloc_raw(sizeof(int)*i));
         *x = i;
         ASSERT_EQ(*x, i);
     }
-    pt_ctx_free(&ctx);
 }
 
 GTEST_TEST(core, hpc_clock) {

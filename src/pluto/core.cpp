@@ -11,8 +11,8 @@ namespace pluto {
     context::context(
         const std::size_t chunk_size,
         const std::size_t chunk_cap
-    ) : m_chunk_size {chunk_size} {
-        m_chunks.reserve(chunk_cap);
+    ) : m_chunk_size {chunk_size ? chunk_size : k_default_chunk_size} {
+        m_chunks.reserve(chunk_cap ? chunk_cap : k_default_chunk_cap);
         push_chunk();
     }
 
@@ -29,12 +29,13 @@ namespace pluto {
             }
             push_chunk();
             if constexpr (k_enable_pool_memory_logging) {
-                std::printf(
-                    "Pool chunk exhausted - requested %.03fKiB\n"
-                    "Increase pool chunk size for best performance, current pool chunk size: %.03fGiB, total allocated: %.03fGiB",
+                std::fprintf(
+                    stderr,
+                    "Pool chunk exhausted - requested %.03f KiB\n"
+                    "Increase pool chunk size for best performance, current pool chunk size: %.03f MiB, total allocated: %.03f MiB\n",
                     static_cast<double>(size)/static_cast<double>(1<<10),
-                    static_cast<double>(m_chunk_size)/static_cast<double>(1<<30),
-                    static_cast<double>(m_chunk_size*m_chunks.size())/static_cast<double>(1<<30)
+                    static_cast<double>(m_chunk_size)/static_cast<double>(1<<20),
+                    static_cast<double>(m_chunk_size*m_chunks.size())/static_cast<double>(1<<20)
                 );
             }
         }
