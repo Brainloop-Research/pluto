@@ -330,8 +330,8 @@ namespace pluto {
             for (std::int64_t i {}; i < k; i += step) {
                 #pragma GCC unroll 4
                 for (std::int64_t j {}; j < 4; ++j) {
-                    vx[j] = _mm512_loadu_ps(x+i+j*16);
-                    vy[j] = _mm512_loadu_ps(y+i+j*16);
+                    vx[j] = _mm512_loadu_ps(x+i+(j<<4));
+                    vy[j] = _mm512_loadu_ps(y+i+(j<<4));
                     acc[j] = _mm512_fmadd_ps(vx[j], vy[j], acc[j]);
                 }
             }
@@ -348,8 +348,8 @@ namespace pluto {
             for (std::int64_t i {}; i < k; i += step) {
                 #pragma GCC unroll 4
                 for (std::int64_t j {}; j < 4; ++j) {
-                    vx[j] = _mm256_loadu_ps(x+i+j*8);
-                    vy[j] = _mm256_loadu_ps(y+i+j*8);
+                    vx[j] = _mm256_loadu_ps(x+i+(j<<3));
+                    vy[j] = _mm256_loadu_ps(y+i+(j<<3));
                     acc[j] = _mm256_fmadd_ps(vx[j], vy[j], acc[j]);
                 }
             }
@@ -385,8 +385,8 @@ namespace pluto {
             for (std::int64_t i {}; i < k; i += step) {
                 #pragma GCC unroll 4
                 for (std::int64_t j {}; j < 4; ++j) {
-                    vx[j] = _mm_loadu_ps(x+i+j*4);
-                    vy[j] = _mm_loadu_ps(y+i+j*4);
+                    vx[j] = _mm_loadu_ps(x+i+(j<<2));
+                    vy[j] = _mm_loadu_ps(y+i+(j<<2));
                     acc[j] = _mm_add_ps(acc[j], _mm_mul_ps(vx[j], vy[j]));
                 }
             }
@@ -418,8 +418,8 @@ namespace pluto {
             for (std::int64_t i {}; i < k; i += step) { // Vectorize
                 #pragma GCC unroll 4
                 for (std::int64_t j {}; j < 4; ++j) { // Unroll
-                    vx[j] = vld1q_f32(x+i+j*4);
-                    vy[j] = vld1q_f32(y+i+j*4);
+                    vx[j] = vld1q_f32(x+i+(j<<2));
+                    vy[j] = vld1q_f32(y+i+(j<<2));
                     acc[j] = vfmaq_f32(acc[j], vx[j], vy[j]); // Fused multiply-accumulate
                 }
             }
@@ -434,7 +434,7 @@ namespace pluto {
         #else
             double sum {}; // Higher precision accumulator
             for (std::int64_t i {}; i < n; ++i) {
-                sum += static_cast<double>(x[i] * y[i]);
+                sum += static_cast<double>(x[i]*y[i]);
             }
             return static_cast<float>(sum);
         #endif
