@@ -24,7 +24,7 @@ target_include_directories(pluto PUBLIC include/pluto)
 if (NOT WIN32)
     target_compile_options(
         pluto
-        PUBLIC
+        PRIVATE
         -Wall
         -Wextra
         -Werror

@@ -184,14 +184,14 @@ namespace pluto {
         constexpr bf16() noexcept = default;
         constexpr explicit bf16(const int x) noexcept : bits{static_cast<std::uint16_t>(x)} {}
         constexpr explicit bf16(const float x) noexcept {
-            if (((std::bit_cast<std::uint32_t>(x)) & 0x7fffffff) > 0x7f800000) { // NaN
-                bits = 64 | ((*(uint32_t *)&x)>>16); // quiet NaNs only
+            const auto bi {std::bit_cast<std::uint32_t>(x)};
+            if ((bi & 0x7fffffff) > 0x7f800000) { // NaN
+                bits = 64 | (bi>>16); // quiet NaNs only
             }
-            if (!((std::bit_cast<std::uint32_t>(x)) & 0x7f800000)) { // Subnormals
-                bits = ((std::bit_cast<std::uint32_t>(x)) & 0x80000000)>>16; // Flush to zero
+            if (!(bi & 0x7f800000)) { // Subnormals
+                bits = (bi & 0x80000000)>>16; // Flush to zero
             }
-            bits = ((std::bit_cast<std::uint32_t>(x))+ (0x7fff
-                + (((std::bit_cast<std::uint32_t>(x))>>16) & 1)))>>16; // Rounding and composing final bf16 value
+            bits = (bi + (0x7fff + ((bi>>16) & 1)))>>16; // Rounding and composing final bf16 value
         }
 
         constexpr explicit operator float() const noexcept {
