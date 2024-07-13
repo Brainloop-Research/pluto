@@ -6,6 +6,5 @@
 #include "pt_core.h"
 #include "pt_tensor.h"
 #include "pt_graph.h"
-#include "pt_blas.h"
 
 #endif

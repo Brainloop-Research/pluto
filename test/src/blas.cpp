@@ -142,7 +142,7 @@ GTEST_TEST(blas, cvt_f32_to_bf16_vec) {
 GTEST_TEST(vblas, dot_f32) {
     std::vector<float> data {};
     data.reserve(325);
-    for (int i {0}; i < data.capacity(); ++i) {
+    for (std::size_t i {0}; i < data.capacity(); ++i) {
         data.emplace_back(static_cast<float>(i));
     }
     const float dot = vblas::dot(data.size(), data.data(), data.data());

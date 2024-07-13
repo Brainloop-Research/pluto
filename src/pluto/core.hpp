@@ -65,13 +65,15 @@ namespace pluto {
         [[nodiscard]] auto pool_alloc_raw_aligned(std::size_t size, std::size_t align) -> void*;
 
         template <typename T, typename... Args>
-            requires std::is_standard_layout_v<T> && std::is_default_constructible_v<T>
+            requires std::is_standard_layout_v<T>
+                && std::is_trivially_destructible_v<T>
+                && std::is_constructible_v<T, Args...>
         [[nodiscard]] auto pool_alloc(Args&&... args) -> T* {
             T* obj;
             if constexpr (alignof(T) <= alignof(std::max_align_t) && !(alignof(T) & (alignof(T)-1))) {
                 obj = reinterpret_cast<T*>(pool_alloc_raw(sizeof(T)));
             } else { obj = reinterpret_cast<T*>(pool_alloc_raw_aligned(sizeof(T), alignof(T))); }
-            return std::launder(new(obj) T{std::forward<Args>(args)...});
+            return std::launder<T>(new(obj) T{std::forward<Args>(args)...});
         }
 
     private:

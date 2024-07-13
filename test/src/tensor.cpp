@@ -131,7 +131,7 @@ TEST(tensor, tensor_fill) {
     pt_ctx_init(&ctx, nullptr, 0);
     auto *origin = pt_tensor_new_4d(&ctx, 4, 4, 8, 2);
     pt_tensor_fill(origin, -0.5f);
-    for (pt_dim_t i = 0; i < origin->size / sizeof(float); ++i) {
+    for (pt_dim_t i = 0; i < (pt_dim_t)(origin->size / sizeof(float)); ++i) {
         ASSERT_FLOAT_EQ(origin->buf[i], -0.5f);
     }
     pt_ctx_free(&ctx);
