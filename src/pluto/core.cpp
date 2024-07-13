@@ -50,7 +50,7 @@ namespace pluto {
         const std::size_t a_mask {align - 1};
         return reinterpret_cast<void*>(
             (reinterpret_cast<std::uintptr_t>(
-                    pool_alloc_raw(size + a_mask)
+                pool_alloc_raw(size + a_mask)
             ) + a_mask) & ~a_mask
         );
     }
