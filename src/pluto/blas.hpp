@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <bit>
 #include <array>
 #include <algorithm>
 #include <cstdint>
@@ -26,7 +27,7 @@ namespace pluto {
         inline explicit f16(const float x) noexcept {
             #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
                 const auto f16 = static_cast<__fp16>(x);
-                bits = *reinterpret_cast<const std::uint16_t*>(&f16);
+                bits = std::bit_cast<std::uint16_t>(f16);
             #elif defined(__F16C__) // Fast hardware path
             #   ifdef _MSC_VER
                     bits = static_cast<std::uint16_t>(_mm_extract_epi16(_mm_cvtps_ph(_mm_set_ss(x), 0), 0));
@@ -34,13 +35,12 @@ namespace pluto {
                     bits = static_cast<std::uint16_t>(_cvtss_sh(x, 0));
             #   endif
             #else // Slow software emulated path
-                float base = (std::abs(x) * 0x1.0p+112f) * 0x1.0p-110f;  // Normalize |x|
-                const std::uint32_t w = *reinterpret_cast<const std::uint32_t*>(&x);
+                const float base = (std::abs(x) * 0x1.0p+112f) * 0x1.0p-110f;  // Normalize |x|
+                const std::uint32_t w = std::bit_cast<std::uint32_t>(x);
                 const std::uint32_t shl1_w = w + w;
                 const std::uint32_t sign = w & 0x80000000u;
                 const std::uint32_t bias = 0x07800000u+(std::max(0x71000000u, shl1_w&0xff000000u)>>1); // Extract bias
-                base = base+*reinterpret_cast<const float*>(&bias);
-                const std::uint32_t rbits = *reinterpret_cast<const std::uint32_t*>(&base); // Extract bits
+                const std::uint32_t rbits = std::bit_cast<std::uint32_t>(base + std::bit_cast<float>(bias)); // Extract bits
                 const std::uint32_t exp_bits = (rbits>>13) & 0x00007c00u; // Extract exponent bits
                 const std::uint32_t mant_bits = rbits & 0x00000fffu; // Extract mantissa bits
                 const std::uint32_t nonsign = exp_bits + mant_bits; // Combine exponent and mantissa bits
@@ -50,7 +50,7 @@ namespace pluto {
 
         inline explicit operator float() const noexcept {
             #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
-                return static_cast<float>(*reinterpret_cast<const __fp16*>(&bits));
+                return static_cast<float>(std::bit_cast<__fp16>(bits));
             #elif defined(__F16C__) // Fast hardware path
             #   ifdef _MSC_VER
                     return static_cast<float>(_mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(bits))));
@@ -62,16 +62,14 @@ namespace pluto {
                 const std::uint32_t sign = w & 0x80000000u;
                 const std::uint32_t two_w = w + w;
                 const std::uint32_t exp_offset = 0xe0u<<23; // Exponent offset for normalization
-                std::uint32_t tmp = (two_w>>4) + exp_offset; // Adjust exponent
-                const float norm_x = *reinterpret_cast<float*>(&tmp) * 0x1.0p-112f; // Normalize the result
-                tmp = (two_w>>17) | (126u<<23); // Adjust exponent for denormalized values
-                const float denorm_x = *reinterpret_cast<float*>(&tmp) - 0.5f;
+                const float norm_x = std::bit_cast<float>((two_w>>4) + exp_offset) * 0x1.0p-112f; // Normalize the result
+                const float denorm_x = std::bit_cast<float>((two_w>>17) | (126u<<23)) - 0.5f; // Adjust exponent for denormalized values
                 const std::uint32_t denorm_cutoff = 1u<<27; // Threshold for denormalized values
                 const std::uint32_t result = sign // Combine sign and mantissa
                     | (two_w < denorm_cutoff
-                    ? *reinterpret_cast<const std::uint32_t*>(&denorm_x) // Use denormalized value if below cutoff
-                    : *reinterpret_cast<const std::uint32_t*>(&norm_x)); // Else use normalized value
-                return *(float *)&result;
+                    ? std::bit_cast<std::uint32_t>(denorm_x) // Use denormalized value if below cutoff
+                    : std::bit_cast<std::uint32_t>(norm_x)); // Else use normalized value
+                return std::bit_cast<float>(result);
             #endif
         }
 
@@ -185,20 +183,20 @@ namespace pluto {
 
         constexpr bf16() noexcept = default;
         constexpr explicit bf16(const int x) noexcept : bits{static_cast<std::uint16_t>(x)} {}
-        inline explicit bf16(const float x) noexcept {
-            if (((*reinterpret_cast<const std::uint32_t*>(&x)) & 0x7fffffff) > 0x7f800000) { // NaN
+        constexpr explicit bf16(const float x) noexcept {
+            if (((std::bit_cast<std::uint32_t>(x)) & 0x7fffffff) > 0x7f800000) { // NaN
                 bits = 64 | ((*(uint32_t *)&x)>>16); // quiet NaNs only
             }
-            if (!((*reinterpret_cast<const std::uint32_t*>(&x)) & 0x7f800000)) { // Subnormals
-                bits = ((*reinterpret_cast<const std::uint32_t*>(&x)) & 0x80000000)>>16; // Flush to zero
+            if (!((std::bit_cast<std::uint32_t>(x)) & 0x7f800000)) { // Subnormals
+                bits = ((std::bit_cast<std::uint32_t>(x)) & 0x80000000)>>16; // Flush to zero
             }
-            bits = ((*reinterpret_cast<const std::uint32_t*>(&x))+ (0x7fff
-                + (((*reinterpret_cast<const std::uint32_t*>(&x))>>16) & 1)))>>16; // Rounding and composing final bf16 value
+            bits = ((std::bit_cast<std::uint32_t>(x))+ (0x7fff
+                + (((std::bit_cast<std::uint32_t>(x))>>16) & 1)))>>16; // Rounding and composing final bf16 value
         }
 
-        inline explicit operator float() const noexcept {
+        constexpr explicit operator float() const noexcept {
             const auto tmp = static_cast<std::uint32_t>(bits)<<16; // bf16 is basically a truncated f32
-            return *reinterpret_cast<const float*>(&tmp);
+            return std::bit_cast<float>(tmp);
         }
 
         static inline auto cvt_bf16_to_f32_vec(const std::int64_t n, float* const o, const bf16* const x) noexcept -> void {
