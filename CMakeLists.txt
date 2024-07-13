@@ -24,14 +24,13 @@ target_include_directories(pluto PUBLIC include/pluto)
 if (NOT WIN32)
     target_compile_options(
         pluto
-        PRIVATE
+        PUBLIC
         -Wall
         -Wextra
         -Werror
         -pedantic
         -Wno-gnu-zero-variadic-macro-arguments
         -Wno-gnu-statement-expression
-        -Wno-error=strict-aliasing
     )
 endif()
 
