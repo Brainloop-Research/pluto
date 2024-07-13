@@ -348,8 +348,8 @@ namespace pluto {
             for (std::int64_t i {}; i < k; i += step) {
                 #pragma GCC unroll 4
                 for (std::int64_t j {}; j < 4; ++j) {
-                    vx[j] = _mm256_loadu_ps(x + i + j * 8);
-                    vy[j] = _mm256_loadu_ps(y + i + j * 8);
+                    vx[j] = _mm256_loadu_ps(x+i+j*8);
+                    vy[j] = _mm256_loadu_ps(y+i+j*8);
                     acc[j] = _mm256_fmadd_ps(vx[j], vy[j], acc[j]);
                 }
             }
