@@ -71,7 +71,7 @@ namespace pluto {
             if constexpr (alignof(T) <= alignof(std::max_align_t) && !(alignof(T) & (alignof(T)-1))) {
                 obj = reinterpret_cast<T*>(pool_alloc_raw(sizeof(T)));
             } else { obj = reinterpret_cast<T*>(pool_alloc_raw_aligned(sizeof(T), alignof(T))); }
-            return new(obj) T{std::forward<Args>(args)...};
+            return std::launder(new(obj) T{std::forward<Args>(args)...});
         }
 
     private:
