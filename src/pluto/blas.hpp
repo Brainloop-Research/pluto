@@ -5,6 +5,7 @@
 #include <bit>
 #include <array>
 #include <algorithm>
+#include <numbers>
 #include <cstdint>
 #include <cmath>
 
@@ -18,6 +19,31 @@
 #endif
 
 namespace pluto {
+    [[nodiscard]] consteval auto const_pow_impl(const double base, const int exp) noexcept -> double {
+        return (exp == 0) ? 1.0 : base * const_pow_impl(base, exp - 1);
+    }
+    [[nodiscard]] consteval auto const_pow(const double base, const double exp) noexcept -> double {
+        return (exp == 0.0) ? 1.0 : (exp > 0.0) ? const_pow_impl(base, static_cast<int>(exp)) : 1.0 / const_pow_impl(base, static_cast<int>(-exp));
+    }
+    [[nodiscard]] consteval auto const_fac(const double n) noexcept -> double {
+        return (n == 0.0 || n == 1.0) ? 1.0 : n * const_fac(n - 1.0);
+    }
+    [[nodiscard]] consteval auto const_abs(const double x) noexcept -> double {
+        return (x < 0.0) ? -x : x;
+    }
+    constexpr double pi_f64 { // Compute π using Ramanujan–Sato series, with arbitrary precision, after steps > 40, NaN results from precision exhaustion
+        [](const int steps = 40) consteval noexcept -> double {
+            double r = 0.0;
+            for (int n {}; n < steps; ++n) {
+                const double k {static_cast<double>(n)};
+                r += const_fac(4.0 * k) / (const_pow(const_fac(k), 4.0)) * ((1103.0 + 26390.0 * k) / const_pow(396.0, 4.0 * k));
+            }
+            return 1.0 / ((2.8284271247461903 / 9801.0) * r);
+        }()
+    };
+    static_assert(const_abs(std::numbers::pi_v<double> - pi_f64) < std::numeric_limits<double>::epsilon()); // |π_1-π_2| < ε
+    constexpr float pi_f32 {static_cast<float>(pi_f64)}; // Compute π using Ramanujan–Sato series, with arbitrary precision
+
     // IEEE 754 754-2008 binary 16 (half precision float)
     struct f16 final {
         std::uint16_t bits {};
