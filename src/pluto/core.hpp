@@ -71,8 +71,8 @@ namespace pluto {
         [[nodiscard]] auto pool_alloc(Args&&... args) -> T* {
             T* obj;
             if constexpr (alignof(T) <= alignof(std::max_align_t) && !(alignof(T) & (alignof(T)-1))) {
-                obj = reinterpret_cast<T*>(pool_alloc_raw(sizeof(T)));
-            } else { obj = reinterpret_cast<T*>(pool_alloc_raw_aligned(sizeof(T), alignof(T))); }
+                obj = static_cast<T*>(pool_alloc_raw(sizeof(T)));
+            } else { obj = static_cast<T*>(pool_alloc_raw_aligned(sizeof(T), alignof(T))); }
             return std::launder<T>(new(obj) T{std::forward<Args>(args)...});
         }
 
