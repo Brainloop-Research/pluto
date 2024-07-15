@@ -4,8 +4,6 @@
 
 #include <cmath>
 
-#include <pluto.h>
-
 #include <pluto/blas.hpp>
 #include <pluto/core.hpp>
 #include <pluto/tensor.hpp>

@@ -72,13 +72,3 @@ GTEST_TEST(core, ctx_pool_exhaust_chunk) {
         ASSERT_EQ(*x, i);
     }
 }
-
-GTEST_TEST(core, hpc_clock) {
-    std::uint64_t prev = pt_hpc_micro_clock();
-    for (int i {0}; i < 1000; ++i) {
-        std::uint64_t now = pt_hpc_micro_clock();
-        ASSERT_NE(0, now);
-        ASSERT_LE(prev, now);
-        prev = now;
-    }
-}

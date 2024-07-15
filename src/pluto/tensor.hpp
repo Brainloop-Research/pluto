@@ -26,6 +26,14 @@ namespace pluto {
         [[nodiscard]] static inline auto create(context* ctx, const std::initializer_list<const dim> dims) -> tensor* {
             return create(ctx, std::span<const dim>{dims});
         }
+        [[nodiscard]] auto isomorphic_clone() const -> tensor* {
+            return create(m_ctx, {m_shape.begin(), m_shape.begin()+m_rank});
+        }
+        [[nodiscard]] auto deep_clone() const -> tensor* {
+            auto* const t {this->isomorphic_clone()};
+            std::copy(m_buf.begin(), m_buf.end(), t->m_buf.begin());
+            return t;
+        }
 
         [[nodiscard]] auto rank() const noexcept -> dim { return m_rank; }
         [[nodiscard]] auto shape() const noexcept -> const std::array<dim, max_dims>& { return m_shape; }
@@ -54,6 +62,19 @@ namespace pluto {
             return std::all_of(m_shape.begin()+2, m_shape.end(), [](const dim d) noexcept -> bool { return d == 1; });
         }
         [[nodiscard]] auto is_higher_order3d() const noexcept -> bool { return m_shape[max_dims-1] == 1; }
+
+        auto fill(const float val) noexcept -> void {
+            if (val == 0.0f) std::memset(m_buf.data(), 0, m_buf.size()*sizeof(float));
+            else std::fill(m_buf.begin(), m_buf.end(), val);
+        }
+
+        template <typename F> requires std::is_invocable_r_v<float, F, dim>
+        auto fill_fn(F&& f) noexcept(std::is_nothrow_invocable_r_v<float, F, dim>) -> void {
+            const auto n {static_cast<dim>(m_buf.size())};
+            for (dim i {}; i < n; ++i) {
+                m_buf[i] = std::invoke(f, i);
+            }
+        }
 
     private:
         context* m_ctx {}; // Context host
