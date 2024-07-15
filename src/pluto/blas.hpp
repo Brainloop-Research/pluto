@@ -29,7 +29,7 @@ namespace pluto {
         constexpr explicit f16(const int x) noexcept : bits{static_cast<std::uint16_t>(x)} {}
         inline explicit f16(const float x) noexcept {
             #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
-                const auto f16 = static_cast<__fp16>(x);
+                const __fp16 f16 {static_cast<__fp16>(x)};
                 bits = std::bit_cast<std::uint16_t>(f16);
             #elif defined(__F16C__) // Fast hardware path
             #   ifdef _MSC_VER
@@ -38,15 +38,15 @@ namespace pluto {
                     bits = static_cast<std::uint16_t>(_cvtss_sh(x, 0));
             #   endif
             #else // Slow software emulated path
-                const float base = (std::abs(x) * 0x1.0p+112f) * 0x1.0p-110f;  // Normalize |x|
-                const std::uint32_t w = std::bit_cast<std::uint32_t>(x);
-                const std::uint32_t shl1_w = w + w;
-                const std::uint32_t sign = w & 0x80000000u;
-                const std::uint32_t bias = 0x07800000u+(std::max(0x71000000u, shl1_w&0xff000000u)>>1); // Extract bias
-                const std::uint32_t rbits = std::bit_cast<std::uint32_t>(base + std::bit_cast<float>(bias)); // Extract bits
-                const std::uint32_t exp_bits = (rbits>>13) & 0x00007c00u; // Extract exponent bits
-                const std::uint32_t mant_bits = rbits & 0x00000fffu; // Extract mantissa bits
-                const std::uint32_t nonsign = exp_bits + mant_bits; // Combine exponent and mantissa bits
+                const float base {(std::abs(x) * 0x1.0p+112f) * 0x1.0p-110f};  // Normalize |x|
+                const std::uint32_t w {std::bit_cast<std::uint32_t>(x)};
+                const std::uint32_t shl1_w {w+w};
+                const std::uint32_t sign {w & 0x80000000u};
+                const std::uint32_t bias {0x07800000u+(std::max(0x71000000u, shl1_w&0xff000000u)>>1)}; // Extract bias
+                const std::uint32_t rbits {std::bit_cast<std::uint32_t>(base + std::bit_cast<float>(bias))}; // Extract bits
+                const std::uint32_t exp_bits {(rbits>>13) & 0x00007c00u}; // Extract exponent bits
+                const std::uint32_t mant_bits {rbits & 0x00000fffu}; // Extract mantissa bits
+                const std::uint32_t nonsign {exp_bits + mant_bits}; // Combine exponent and mantissa bits
                 bits = (sign>>16)|(shl1_w > 0xff000000 ? 0x7e00 : nonsign); // Pack full bit pattern
             #endif
         }
@@ -61,13 +61,13 @@ namespace pluto {
                     return static_cast<float>(_cvtsh_ss(bits));
             #   endif
             #else // Slow software emulated path
-                const std::uint32_t w = static_cast<std::uint32_t>(bits)<<16;
-                const std::uint32_t sign = w & 0x80000000u;
-                const std::uint32_t two_w = w + w;
-                const std::uint32_t exp_offset = 0xe0u<<23; // Exponent offset for normalization
-                const float norm_x = std::bit_cast<float>((two_w>>4) + exp_offset) * 0x1.0p-112f; // Normalize the result
-                const float denorm_x = std::bit_cast<float>((two_w>>17) | (126u<<23)) - 0.5f; // Adjust exponent for denormalized values
-                const std::uint32_t denorm_cutoff = 1u<<27; // Threshold for denormalized values
+                const std::uint32_t w {static_cast<std::uint32_t>(bits)<<16};
+                const std::uint32_t sign {w & 0x80000000u};
+                const std::uint32_t two_w {w+w};
+                const std::uint32_t exp_offset {0xe0u<<23}; // Exponent offset for normalization
+                const float norm_x {std::bit_cast<float>((two_w>>4) + exp_offset) * 0x1.0p-112f}; // Normalize the result
+                const float denorm_x {std::bit_cast<float>((two_w>>17) | (126u<<23)) - 0.5f}; // Adjust exponent for denormalized values
+                const std::uint32_t denorm_cutoff {1u<<27}; // Threshold for denormalized values
                 const std::uint32_t result = sign // Combine sign and mantissa
                     | (two_w < denorm_cutoff
                     ? std::bit_cast<std::uint32_t>(denorm_x) // Use denormalized value if below cutoff
@@ -161,17 +161,17 @@ namespace pluto {
         [[nodiscard]] static constexpr auto zero() noexcept -> f16 { return f16{0x0000}; }
 
         inline auto operator ==(const f16 rhs) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 = static_cast<float>(*this);
-            const auto xi2 = static_cast<float>(rhs);
-            const auto epsi = static_cast<float>(eps());
+            const auto xi1 {static_cast<float>(* this)};
+            const auto xi2 {static_cast<float>(rhs)};
+            const auto epsi {static_cast<float>(eps())};
             return std::abs(xi1 - xi2) < epsi;
         }
         inline auto operator !=(const f16 rhs) const noexcept -> bool {
             return !(*this == rhs);
         }
         inline auto operator ==(const float xi2) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 = static_cast<float>(*this);
-            const auto epsi = static_cast<float>(eps());
+            const auto xi1 {static_cast<float>(* this)};
+            const auto epsi {static_cast<float>(eps())};
             return std::abs(xi1 - xi2) < epsi;
         }
         inline auto operator !=(const float rhs) const noexcept -> bool {
@@ -198,8 +198,7 @@ namespace pluto {
         }
 
         constexpr explicit operator float() const noexcept {
-            const auto tmp = static_cast<std::uint32_t>(bits)<<16; // bf16 is basically a truncated f32
-            return std::bit_cast<float>(tmp);
+            return std::bit_cast<float>(static_cast<std::uint32_t>(bits)<<16); // bf16 is basically a truncated f32
         }
 
         static inline auto cvt_bf16_to_f32_vec(const linear_dim n, float* const o, const bf16* const x) noexcept -> void {
@@ -295,17 +294,17 @@ namespace pluto {
         [[nodiscard]] static constexpr auto sqrt_2() noexcept -> bf16 { return bf16{0x3fb5}; }
 
         inline auto operator ==(const bf16 rhs) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 = static_cast<float>(*this);
-            const auto xi2 = static_cast<float>(rhs);
-            const auto epsi = static_cast<float>(eps());
+            const auto xi1 {static_cast<float>(*this)};
+            const auto xi2 {static_cast<float>(rhs)};
+            const auto epsi {static_cast<float>(eps())};
             return std::abs(xi1 - xi2) < epsi;
         }
         inline auto operator !=(const bf16 rhs) const noexcept -> bool {
             return !(*this == rhs);
         }
         inline auto operator ==(const float xi2) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 = static_cast<float>(*this);
-            const auto epsi = static_cast<float>(eps());
+            const auto xi1 {static_cast<float>(*this)};
+            const auto epsi {static_cast<float>(eps())};
             return std::abs(xi1 - xi2) < epsi;
         }
         inline auto operator !=(const float rhs) const noexcept -> bool {

@@ -23,8 +23,8 @@ namespace pluto {
         auto operator=(tensor&&) -> tensor& = delete;
         ~tensor() = default;
 
-        [[nodiscard]] static auto create(context* ctx, std::span<const linear_dim> shape) -> tensor*;
-        [[nodiscard]] static inline auto create(context* ctx, const std::initializer_list<const linear_dim> dims) -> tensor* {
+        [[nodiscard]] static auto create(context* ctx, std::span<const linear_dim> shape) noexcept -> tensor*;
+        [[nodiscard]] static inline auto create(context* ctx, const std::initializer_list<const linear_dim> dims) noexcept -> tensor* {
             return create(ctx, std::span<const linear_dim>{dims});
         }
         [[nodiscard]] auto isomorphic_clone() const -> tensor* {

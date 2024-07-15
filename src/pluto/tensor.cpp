@@ -7,7 +7,7 @@
 #include <numeric>
 
 namespace pluto {
-    auto tensor::create(context* const ctx, const std::span<const linear_dim> shape) -> tensor* {
+    auto tensor::create(context* const ctx, const std::span<const linear_dim> shape) noexcept -> tensor* {
         assert(ctx != nullptr);
         auto* const t {ctx->pool_alloc<tensor>()}; // Allocate memory for the tensor
         t->m_ctx = ctx;
