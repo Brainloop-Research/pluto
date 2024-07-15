@@ -312,11 +312,11 @@ namespace pluto {
     };
     static_assert(sizeof(bf16) == 2);
 
-    namespace vblas {
+    namespace vblas { // Vector BLAS
         #define PT_X86_X64_USE_HADD
 
         template <typename T>
-        inline auto dot(const std::int64_t n, const T* const x, const T* const y) noexcept -> T;
+        inline auto dot(std::int64_t n, const T* x, const T* y) noexcept -> T;
 
         template <>
         inline auto dot(const std::int64_t n, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> float {

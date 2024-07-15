@@ -3,34 +3,31 @@
 #include "prelude.hpp"
 
 TEST(tensor, tensor_new_1d) {
-    pt_ctx_t ctx {};
-    pt_ctx_init(&ctx, nullptr, 0);
-    auto *t = pt_tensor_new_1d(&ctx, 10);
+    context ctx {};
+    auto* t {tensor::create(&ctx, {10})};
     ASSERT_NE(t, nullptr);
-    ASSERT_EQ(t->rank, 1);
-    ASSERT_EQ(t->shape[0], 10);
-    ASSERT_EQ(t->shape[1], 1);
-    ASSERT_EQ(t->shape[2], 1);
-    ASSERT_EQ(t->shape[3], 1);
-    ASSERT_EQ(t->size, 10*sizeof(float));
-    ASSERT_EQ(pt_tensor_element_count(t), 10);
-    ASSERT_EQ(pt_tensor_column_count(t), 10);
-    ASSERT_EQ(pt_tensor_row_count(t), 1);
-    ASSERT_EQ(t->strides[0], sizeof(float));
-    ASSERT_EQ(t->strides[1], 10*sizeof(float));
-    ASSERT_EQ(t->strides[2], 10*sizeof(float));
-    ASSERT_EQ(t->strides[3], 10*sizeof(float));
-    pt_dim_t idx[PT_MAX_DIMS] = {};
-    pt_linear_to_multidim_idx(t, 5, &idx);
+    ASSERT_EQ(t->rank(), 1);
+    ASSERT_EQ(t->shape()[0], 10);
+    ASSERT_EQ(t->shape()[1], 1);
+    ASSERT_EQ(t->shape()[2], 1);
+    ASSERT_EQ(t->shape()[3], 1);
+    ASSERT_EQ(t->buf().size(), 10);
+    ASSERT_EQ(t->col_count(), 10);
+    ASSERT_EQ(t->row_count(), 1);
+    ASSERT_EQ(t->strides()[0], sizeof(float));
+    ASSERT_EQ(t->strides()[1], 10*sizeof(float));
+    ASSERT_EQ(t->strides()[2], 10*sizeof(float));
+    ASSERT_EQ(t->strides()[3], 10*sizeof(float));
+    std::array<dim, tensor::max_dims> idx {};
+    t->linear_to_multidim_idx(5, idx);
     ASSERT_EQ(idx[0], 5);
     ASSERT_EQ(idx[1], 0);
     ASSERT_EQ(idx[2], 0);
     ASSERT_EQ(idx[3], 0);
-    ASSERT_FALSE(pt_tensor_is_scalar(t));
-    ASSERT_TRUE(pt_tensor_is_vector(t));
-    ASSERT_TRUE(pt_tensor_is_matrix(t));
-    ASSERT_TRUE(pt_tensor_is_higherorder3d(t));
-    pt_ctx_free(&ctx);
+    ASSERT_FALSE(t->is_scalar());
+    ASSERT_TRUE(t->is_vector());
+    ASSERT_TRUE(t->is_matrix());
+    ASSERT_TRUE(t->is_higher_order3d());
 }
 
 TEST(tensor, tensor_new_2d) {

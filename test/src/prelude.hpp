@@ -8,6 +8,7 @@
 
 #include <pluto/blas.hpp>
 #include <pluto/core.hpp>
+#include <pluto/tensor.hpp>
 
 using namespace pluto;
 
