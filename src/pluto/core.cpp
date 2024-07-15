@@ -23,7 +23,7 @@ namespace pluto {
 
     auto context::pool_alloc_raw(const std::size_t size) -> void* {
         assert(size && size <= std::numeric_limits<std::ptrdiff_t>::max());
-        if (m_delta - m_chunks.back().get() < static_cast<std::ptrdiff_t>(size)) {
+        if (m_delta - &m_chunks.back()[0] < static_cast<std::ptrdiff_t>(size)) {
             if (m_chunk_size < size) { // Increase the chunk size if it's too small to accommodate the requested length
                 while ((m_chunk_size <<= 1) < size
                     && m_chunk_size <= (std::numeric_limits<std::ptrdiff_t>::max() >> 1));
@@ -59,7 +59,7 @@ namespace pluto {
     auto context::push_chunk() -> void {
         auto chunk {std::make_unique<std::byte[]>(m_chunk_size)};
         m_mapped_total += m_chunk_size;
-        m_delta = chunk.get() + m_chunk_size;
+        m_delta = &chunk[0] + m_chunk_size;
         m_chunks.emplace_back(std::move(chunk));
     }
 }

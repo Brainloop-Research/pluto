@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "tensor.hpp"
+
 #include <bit>
 #include <array>
 #include <algorithm>
@@ -27,7 +29,7 @@ namespace pluto {
         constexpr explicit f16(const int x) noexcept : bits{static_cast<std::uint16_t>(x)} {}
         inline explicit f16(const float x) noexcept {
             #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
-                const auto f16 = static_cast<__fp16>(x);
+                const __fp16 f16 {static_cast<__fp16>(x)};
                 bits = std::bit_cast<std::uint16_t>(f16);
             #elif defined(__F16C__) // Fast hardware path
             #   ifdef _MSC_VER
@@ -36,15 +38,15 @@ namespace pluto {
                     bits = static_cast<std::uint16_t>(_cvtss_sh(x, 0));
             #   endif
             #else // Slow software emulated path
-                const float base = (std::abs(x) * 0x1.0p+112f) * 0x1.0p-110f;  // Normalize |x|
-                const std::uint32_t w = std::bit_cast<std::uint32_t>(x);
-                const std::uint32_t shl1_w = w + w;
-                const std::uint32_t sign = w & 0x80000000u;
-                const std::uint32_t bias = 0x07800000u+(std::max(0x71000000u, shl1_w&0xff000000u)>>1); // Extract bias
-                const std::uint32_t rbits = std::bit_cast<std::uint32_t>(base + std::bit_cast<float>(bias)); // Extract bits
-                const std::uint32_t exp_bits = (rbits>>13) & 0x00007c00u; // Extract exponent bits
-                const std::uint32_t mant_bits = rbits & 0x00000fffu; // Extract mantissa bits
-                const std::uint32_t nonsign = exp_bits + mant_bits; // Combine exponent and mantissa bits
+                const float base {(std::abs(x) * 0x1.0p+112f) * 0x1.0p-110f};  // Normalize |x|
+                const std::uint32_t w {std::bit_cast<std::uint32_t>(x)};
+                const std::uint32_t shl1_w {w+w};
+                const std::uint32_t sign {w & 0x80000000u};
+                const std::uint32_t bias {0x07800000u+(std::max(0x71000000u, shl1_w&0xff000000u)>>1)}; // Extract bias
+                const std::uint32_t rbits {std::bit_cast<std::uint32_t>(base + std::bit_cast<float>(bias))}; // Extract bits
+                const std::uint32_t exp_bits {(rbits>>13) & 0x00007c00u}; // Extract exponent bits
+                const std::uint32_t mant_bits {rbits & 0x00000fffu}; // Extract mantissa bits
+                const std::uint32_t nonsign {exp_bits + mant_bits}; // Combine exponent and mantissa bits
                 bits = (sign>>16)|(shl1_w > 0xff000000 ? 0x7e00 : nonsign); // Pack full bit pattern
             #endif
         }
@@ -59,13 +61,13 @@ namespace pluto {
                     return static_cast<float>(_cvtsh_ss(bits));
             #   endif
             #else // Slow software emulated path
-                const std::uint32_t w = static_cast<std::uint32_t>(bits)<<16;
-                const std::uint32_t sign = w & 0x80000000u;
-                const std::uint32_t two_w = w + w;
-                const std::uint32_t exp_offset = 0xe0u<<23; // Exponent offset for normalization
-                const float norm_x = std::bit_cast<float>((two_w>>4) + exp_offset) * 0x1.0p-112f; // Normalize the result
-                const float denorm_x = std::bit_cast<float>((two_w>>17) | (126u<<23)) - 0.5f; // Adjust exponent for denormalized values
-                const std::uint32_t denorm_cutoff = 1u<<27; // Threshold for denormalized values
+                const std::uint32_t w {static_cast<std::uint32_t>(bits)<<16};
+                const std::uint32_t sign {w & 0x80000000u};
+                const std::uint32_t two_w {w+w};
+                const std::uint32_t exp_offset {0xe0u<<23}; // Exponent offset for normalization
+                const float norm_x {std::bit_cast<float>((two_w>>4) + exp_offset) * 0x1.0p-112f}; // Normalize the result
+                const float denorm_x {std::bit_cast<float>((two_w>>17) | (126u<<23)) - 0.5f}; // Adjust exponent for denormalized values
+                const std::uint32_t denorm_cutoff {1u<<27}; // Threshold for denormalized values
                 const std::uint32_t result = sign // Combine sign and mantissa
                     | (two_w < denorm_cutoff
                     ? std::bit_cast<std::uint32_t>(denorm_x) // Use denormalized value if below cutoff
@@ -74,8 +76,8 @@ namespace pluto {
             #endif
         }
 
-        static inline auto cvt_f16_to_f32_vec(const std::int64_t n, float* const o, const f16* const x) noexcept -> void {
-            std::int64_t i {};
+        static inline auto cvt_f16_to_f32_vec(const linear_dim n, float* const o, const f16* const x) noexcept -> void {
+            linear_dim i {};
             #ifdef __ARM_NEON
                 for (; i+7 < n; i += 8) {
                     const float16x8_t v0 {vld1q_f16(reinterpret_cast<const float16_t*>(x+i))};
@@ -95,8 +97,8 @@ namespace pluto {
             }
         }
 
-        static inline auto cvt_f32_to_f16_vec(const std::int64_t n, f16* const o, const float* const x) noexcept -> void {
-            std::int64_t i {};
+        static inline auto cvt_f32_to_f16_vec(const linear_dim n, f16* const o, const float* const x) noexcept -> void {
+            linear_dim i {};
             #ifdef __F16C__
                 for (; i+7 < n; i += 8) {
                     _mm_storeu_si128(
@@ -159,17 +161,17 @@ namespace pluto {
         [[nodiscard]] static constexpr auto zero() noexcept -> f16 { return f16{0x0000}; }
 
         inline auto operator ==(const f16 rhs) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 = static_cast<float>(*this);
-            const auto xi2 = static_cast<float>(rhs);
-            const auto epsi = static_cast<float>(eps());
+            const auto xi1 {static_cast<float>(* this)};
+            const auto xi2 {static_cast<float>(rhs)};
+            const auto epsi {static_cast<float>(eps())};
             return std::abs(xi1 - xi2) < epsi;
         }
         inline auto operator !=(const f16 rhs) const noexcept -> bool {
             return !(*this == rhs);
         }
         inline auto operator ==(const float xi2) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 = static_cast<float>(*this);
-            const auto epsi = static_cast<float>(eps());
+            const auto xi1 {static_cast<float>(* this)};
+            const auto epsi {static_cast<float>(eps())};
             return std::abs(xi1 - xi2) < epsi;
         }
         inline auto operator !=(const float rhs) const noexcept -> bool {
@@ -196,12 +198,11 @@ namespace pluto {
         }
 
         constexpr explicit operator float() const noexcept {
-            const auto tmp = static_cast<std::uint32_t>(bits)<<16; // bf16 is basically a truncated f32
-            return std::bit_cast<float>(tmp);
+            return std::bit_cast<float>(static_cast<std::uint32_t>(bits)<<16); // bf16 is basically a truncated f32
         }
 
-        static inline auto cvt_bf16_to_f32_vec(const std::int64_t n, float* const o, const bf16* const x) noexcept -> void {
-            std::int64_t i {};
+        static inline auto cvt_bf16_to_f32_vec(const linear_dim n, float* const o, const bf16* const x) noexcept -> void {
+            linear_dim i {};
             #ifdef __AVX512F__
                 for (; i+15 < n; i += 16) {
                     _mm512_storeu_ps(o+i,
@@ -249,8 +250,8 @@ namespace pluto {
             }
         }
 
-        static inline auto cvt_f32_to_bf16_vec(const std::int64_t n, bf16* const o, const float* const x) noexcept -> void {
-            std::int64_t i {};
+        static inline auto cvt_f32_to_bf16_vec(const linear_dim n, bf16* const o, const float* const x) noexcept -> void {
+            linear_dim i {};
             #ifdef __AVX512BF16__
                 for (; i+31 < n; i += 32) {
                     _mm512_storeu_si512(
@@ -293,17 +294,17 @@ namespace pluto {
         [[nodiscard]] static constexpr auto sqrt_2() noexcept -> bf16 { return bf16{0x3fb5}; }
 
         inline auto operator ==(const bf16 rhs) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 = static_cast<float>(*this);
-            const auto xi2 = static_cast<float>(rhs);
-            const auto epsi = static_cast<float>(eps());
+            const auto xi1 {static_cast<float>(*this)};
+            const auto xi2 {static_cast<float>(rhs)};
+            const auto epsi {static_cast<float>(eps())};
             return std::abs(xi1 - xi2) < epsi;
         }
         inline auto operator !=(const bf16 rhs) const noexcept -> bool {
             return !(*this == rhs);
         }
         inline auto operator ==(const float xi2) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 = static_cast<float>(*this);
-            const auto epsi = static_cast<float>(eps());
+            const auto xi1 {static_cast<float>(*this)};
+            const auto epsi {static_cast<float>(eps())};
             return std::abs(xi1 - xi2) < epsi;
         }
         inline auto operator !=(const float rhs) const noexcept -> bool {
@@ -316,19 +317,19 @@ namespace pluto {
         #define PT_X86_X64_USE_HADD
 
         template <typename T>
-        inline auto dot(std::int64_t n, const T* x, const T* y) noexcept -> T;
+        inline auto dot(linear_dim n, const T* x, const T* y) noexcept -> T;
 
         template <>
-        inline auto dot(const std::int64_t n, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> float {
+        inline auto dot(const linear_dim n, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> float {
         #ifdef __AVX512F__
-            constexpr std::int64_t step {64};
-            const std::int64_t k {n & -step};
+            constexpr dim step {64};
+            const dim k {n & -step};
             __m512 acc[4] = {_mm512_setzero_ps()};
             __m512 vx[4];
             __m512 vy[4];
-            for (std::int64_t i {}; i < k; i += step) {
+            for (dim i {}; i < k; i += step) {
                 #pragma GCC unroll 4
-                for (std::int64_t j {}; j < 4; ++j) {
+                for (dim j {}; j < 4; ++j) {
                     vx[j] = _mm512_loadu_ps(x+i+(j<<4));
                     vy[j] = _mm512_loadu_ps(y+i+(j<<4));
                     acc[j] = _mm512_fmadd_ps(vx[j], vy[j], acc[j]);
@@ -339,14 +340,14 @@ namespace pluto {
             *acc = _mm512_add_ps(*acc, acc[1]);
             return _mm512_reduce_add_ps(*acc);
         #elif defined(__AVX__) && defined(__FMA__)
-            constexpr std::int64_t step {32};
-            const std::int64_t k {n & -step};
+            constexpr dim step {32};
+            const dim k {n & -step};
             __m256 acc[4] {_mm256_setzero_ps()};
             __m256 vx[4];
             __m256 vy[4];
-            for (std::int64_t i {}; i < k; i += step) {
+            for (dim i {}; i < k; i += step) {
                 #pragma GCC unroll 4
-                for (std::int64_t j {}; j < 4; ++j) {
+                for (dim j {}; j < 4; ++j) {
                     vx[j] = _mm256_loadu_ps(x+i+(j<<3));
                     vy[j] = _mm256_loadu_ps(y+i+(j<<3));
                     acc[j] = _mm256_fmadd_ps(vx[j], vy[j], acc[j]);
@@ -371,19 +372,19 @@ namespace pluto {
                 xmm4 = _mm_add_ss(xmm4, xmm3);
                 sum = _mm_cvtss_f32(xmm4);
             #endif
-            for (std::int64_t i{k}; i < n; ++i) { // Process leftovers scalar-wise
+            for (dim i{k}; i < n; ++i) { // Process leftovers scalar-wise
                 sum += x[i]*y[i];
             }
             return sum;
         #elif defined(__SSE2__)
-            constexpr std::int64_t step {16};
-            const std::int64_t k {n & -step};
+            constexpr dim step {16};
+            const dim k {n & -step};
             __m128 acc[4] {_mm_setzero_ps()};
             __m128 vx[4];
             __m128 vy[4];
-            for (std::int64_t i {}; i < k; i += step) {
+            for (dim i {}; i < k; i += step) {
                 #pragma GCC unroll 4
-                for (std::int64_t j {}; j < 4; ++j) {
+                for (dim j {}; j < 4; ++j) {
                     vx[j] = _mm_loadu_ps(x+i+(j<<2));
                     vy[j] = _mm_loadu_ps(y+i+(j<<2));
                     acc[j] = _mm_add_ps(acc[j], _mm_mul_ps(vx[j], vy[j]));
@@ -404,19 +405,19 @@ namespace pluto {
                 sums = _mm_add_ss(sums, shuf);
                 sum = _mm_cvtss_f32(sums);
             #endif
-            for (std::int64_t i{k}; i < n; ++i) { // Process leftovers scalar-wise
+            for (dim i{k}; i < n; ++i) { // Process leftovers scalar-wise
                 sum += x[i]*y[i];
             }
             return sum;
         #elif defined(__ARM_NEON)
-            constexpr std::int64_t step {16};
-            const std::int64_t k {n & -step};
+            constexpr linear_dim step {16};
+            const linear_dim k {n & -step};
             float32x4_t acc[4] {vdupq_n_f32(0)};
             float32x4_t vx[4]; // NOLINT(*-pro-type-member-init)
             float32x4_t vy[4]; // NOLINT(*-pro-type-member-init)
-            for (std::int64_t i {}; i < k; i += step) { // Vectorize
+            for (linear_dim i {}; i < k; i += step) { // Vectorize
                 #pragma GCC unroll 4
-                for (std::int64_t j {}; j < 4; ++j) { // Unroll
+                for (linear_dim j {}; j < 4; ++j) { // Unroll
                     vx[j] = vld1q_f32(x+i+(j<<2));
                     vy[j] = vld1q_f32(y+i+(j<<2));
                     acc[j] = vfmaq_f32(acc[j], vx[j], vy[j]); // Fused multiply-accumulate
@@ -426,13 +427,13 @@ namespace pluto {
             *acc = vaddq_f32(*acc, acc[2]); // Reduce to scalar with horizontal sum
             *acc = vaddq_f32(*acc, acc[1]); // Reduce to scalar with horizontal sum
             float sum {vaddvq_f32(*acc)}; // Reduce to scalar with horizontal sum
-            for (std::int64_t i {k}; i < n; ++i) { // Process leftovers scalar-wise
+            for (linear_dim i {k}; i < n; ++i) { // Process leftovers scalar-wise
                 sum += x[i]*y[i];
             }
             return sum;
         #else
             double sum {}; // Higher precision accumulator
-            for (std::int64_t i {}; i < n; ++i) {
+            for (dim i {}; i < n; ++i) {
                 sum += static_cast<double>(x[i]*y[i]);
             }
             return static_cast<float>(sum);
