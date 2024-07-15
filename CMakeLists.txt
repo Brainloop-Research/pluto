@@ -2,13 +2,14 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-project(pluto LANGUAGES C)
+project(pluto LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 20)
 
 option(PLUTO_BUILD_TESTS "Build tests" ON)
 
-file(GLOB_RECURSE SOURCES src/*.h src/*.c)
+file(GLOB_RECURSE SOURCES src/*.h src/*.c src/*.cpp src/*.hpp)
 
 if (WIN32)
    if (MSVC)
