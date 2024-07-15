@@ -76,8 +76,8 @@ namespace pluto {
             #endif
         }
 
-        static inline auto cvt_f16_to_f32_vec(const dim n, float* const o, const f16* const x) noexcept -> void {
-            dim i {};
+        static inline auto cvt_f16_to_f32_vec(const linear_dim n, float* const o, const f16* const x) noexcept -> void {
+            linear_dim i {};
             #ifdef __ARM_NEON
                 for (; i+7 < n; i += 8) {
                     const float16x8_t v0 {vld1q_f16(reinterpret_cast<const float16_t*>(x+i))};
@@ -97,8 +97,8 @@ namespace pluto {
             }
         }
 
-        static inline auto cvt_f32_to_f16_vec(const dim n, f16* const o, const float* const x) noexcept -> void {
-            dim i {};
+        static inline auto cvt_f32_to_f16_vec(const linear_dim n, f16* const o, const float* const x) noexcept -> void {
+            linear_dim i {};
             #ifdef __F16C__
                 for (; i+7 < n; i += 8) {
                     _mm_storeu_si128(
@@ -202,8 +202,8 @@ namespace pluto {
             return std::bit_cast<float>(tmp);
         }
 
-        static inline auto cvt_bf16_to_f32_vec(const dim n, float* const o, const bf16* const x) noexcept -> void {
-            dim i {};
+        static inline auto cvt_bf16_to_f32_vec(const linear_dim n, float* const o, const bf16* const x) noexcept -> void {
+            linear_dim i {};
             #ifdef __AVX512F__
                 for (; i+15 < n; i += 16) {
                     _mm512_storeu_ps(o+i,
@@ -251,8 +251,8 @@ namespace pluto {
             }
         }
 
-        static inline auto cvt_f32_to_bf16_vec(const dim n, bf16* const o, const float* const x) noexcept -> void {
-            dim i {};
+        static inline auto cvt_f32_to_bf16_vec(const linear_dim n, bf16* const o, const float* const x) noexcept -> void {
+            linear_dim i {};
             #ifdef __AVX512BF16__
                 for (; i+31 < n; i += 32) {
                     _mm512_storeu_si512(
@@ -318,10 +318,10 @@ namespace pluto {
         #define PT_X86_X64_USE_HADD
 
         template <typename T>
-        inline auto dot(dim n, const T* x, const T* y) noexcept -> T;
+        inline auto dot(linear_dim n, const T* x, const T* y) noexcept -> T;
 
         template <>
-        inline auto dot(const dim n, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> float {
+        inline auto dot(const linear_dim n, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> float {
         #ifdef __AVX512F__
             constexpr dim step {64};
             const dim k {n & -step};
@@ -411,14 +411,14 @@ namespace pluto {
             }
             return sum;
         #elif defined(__ARM_NEON)
-            constexpr dim step {16};
-            const dim k {n & -step};
+            constexpr linear_dim step {16};
+            const linear_dim k {n & -step};
             float32x4_t acc[4] {vdupq_n_f32(0)};
             float32x4_t vx[4]; // NOLINT(*-pro-type-member-init)
             float32x4_t vy[4]; // NOLINT(*-pro-type-member-init)
-            for (dim i {}; i < k; i += step) { // Vectorize
+            for (linear_dim i {}; i < k; i += step) { // Vectorize
                 #pragma GCC unroll 4
-                for (dim j {}; j < 4; ++j) { // Unroll
+                for (linear_dim j {}; j < 4; ++j) { // Unroll
                     vx[j] = vld1q_f32(x+i+(j<<2));
                     vy[j] = vld1q_f32(y+i+(j<<2));
                     acc[j] = vfmaq_f32(acc[j], vx[j], vy[j]); // Fused multiply-accumulate
@@ -428,7 +428,7 @@ namespace pluto {
             *acc = vaddq_f32(*acc, acc[2]); // Reduce to scalar with horizontal sum
             *acc = vaddq_f32(*acc, acc[1]); // Reduce to scalar with horizontal sum
             float sum {vaddvq_f32(*acc)}; // Reduce to scalar with horizontal sum
-            for (dim i {k}; i < n; ++i) { // Process leftovers scalar-wise
+            for (linear_dim i {k}; i < n; ++i) { // Process leftovers scalar-wise
                 sum += x[i]*y[i];
             }
             return sum;
