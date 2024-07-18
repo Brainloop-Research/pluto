@@ -85,7 +85,7 @@ namespace pluto::graph {
     template <const graph_eval_order Ord, typename F, typename... Args>
     requires std::is_invocable_r_v<bool, F, tensor*, Args...>
     [[nodiscard]] static constexpr auto graph_visit(tensor* const root, F&& f, Args&&... arr)
-    noexcept(std::is_nothrow_invocable_r_v<bool, F, Args...>) -> bool {
+    noexcept(std::is_nothrow_invocable_r_v<bool, F, tensor*, Args...>) -> bool {
         if (!root) [[unlikely]] return false;
         const std::span<tensor*> args {root->get_args()};
         for (std::size_t i {}, k; i < args.size(); ++i) {
