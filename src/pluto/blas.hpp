@@ -331,6 +331,9 @@ namespace pluto {
 
     // Vector BLAS
     namespace detail::vblas {
+        constexpr float sqrt2pi {0.79788456080286535587989211986876f}; // √(2/π)
+        constexpr float gelu_coeff {0.044715f}; // GeLU coefficient
+
         // Unary VOPS
         template <typename T> requires is_dtype<T>
         inline auto PT_HOTPROC softmax(dim n, T* __restrict__ o, const T* __restrict__ x) noexcept -> void;
@@ -387,8 +390,6 @@ namespace pluto {
 
         template <>
         inline auto PT_HOTPROC gelu(const dim n, float* __restrict__ const o, const float* __restrict__ const x) noexcept -> void {
-            static constexpr float sqrt2pi {0.79788456080286535587989211986876f}; // √(2/π)
-            static constexpr float gelu_coeff {0.044715f}; // GeLU coefficient
             for (dim i {}; i < n; ++i) {
                 o[i] = 0.5f * x[i] * (1.0f + std::tanh(sqrt2pi * x[i] * (1.0f + gelu_coeff * x[i] * x[i])));
             }
@@ -564,6 +565,33 @@ namespace pluto {
             std::is_nothrow_invocable_r_v<S, F, S, S>; // auto f(S x, S y) -> S
         };
 
+        template <typename T, typename V_OP> requires requires {
+            is_dtype<T>;
+            is_vector_op<V_OP, T>;
+        }
+        static auto PT_AINLINE PT_HOTPROC gen_unary_op(
+            const compute_ctx& ctx,
+            tensor& r,          // result
+            const tensor& x,    // X = src 0
+            V_OP&& v_op         // Vector OP
+        ) noexcept -> void {
+            assert(x.is_shape_eq(&r));  // Debug only verification - ! must be checked by validation function, TODO: Check broadcasting OP
+            auto* const b_r{reinterpret_cast<std::byte*>(r.buf().data())};                                            // Data base ptr
+            const auto* const b_x{reinterpret_cast<const std::byte*>(x.buf().data())};                           // Data base ptr
+            const auto [x_s0, x_s1, x_s2, x_s3] {x.strides()};          // Strides of x
+            const auto [r_s0, r_s1, r_s2, r_s3] {r.strides()};          // Strides of r
+            const dim rc {r.row_count()};
+            const dim cc {r.col_count()};
+            for (dim row {}; row < rc; ++row) {
+                std::invoke(
+                    v_op,
+                    cc,
+                    reinterpret_cast<T*>(b_r + row*r_s1),
+                    reinterpret_cast<const T*>(b_x + row*x_s1)
+                );
+            }
+        }
+
         template <typename T, typename V_OP, typename S_OP> requires requires {
             is_dtype<T>;
             is_vector_op<V_OP, T>;
@@ -615,6 +643,42 @@ namespace pluto {
                 }
             }
         }
+    }
+
+    inline auto softmax(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::softmax<float>);
+        return r;
+    }
+
+    inline auto sigmoid(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::sigmoid<float>);
+        return r;
+    }
+
+    inline auto tanh(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::tanh<float>);
+        return r;
+    }
+
+    inline auto relu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::relu<float>);
+        return r;
+    }
+
+    inline auto gelu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::gelu<float>);
+        return r;
+    }
+
+    inline auto silu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::silu<float>);
+        return r;
     }
 
     inline auto add(

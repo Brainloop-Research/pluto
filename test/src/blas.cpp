@@ -140,10 +140,84 @@ GTEST_TEST(blas, cvt_f32_to_bf16_vec) {
     }
 }
 
+GTEST_TEST(vblas, softmax_f32) {
+    std::vector<float> data {};
+    data.reserve(325);
+    for (std::size_t i {0}; i < data.capacity(); ++i) {
+        data.emplace_back(static_cast<float>(i));
+    }
+    std::vector<float> r {};
+    r.resize(data.size());
+    detail::vblas::softmax(data.size(), r.data(), data.data());
+    for (std::size_t i {}; i < data.size(); ++i) {
+        ASSERT_EQ(r[i], std::exp(data[i]));
+    }
+}
+
+GTEST_TEST(vblas, sigmoid_f32) {
+    std::vector<float> data {};
+    data.reserve(325);
+    for (std::size_t i {0}; i < data.capacity(); ++i) {
+        data.emplace_back(static_cast<float>(i));
+    }
+    std::vector<float> r {};
+    r.resize(data.size());
+    detail::vblas::sigmoid(data.size(), r.data(), data.data());
+    for (std::size_t i {}; i < data.size(); ++i) {
+        ASSERT_EQ(r[i], 1.0f / (1.0f + std::exp(-data[i])));
+    }
+}
+
+GTEST_TEST(vblas, tanh_f32) {
+    std::vector<float> data {};
+    data.reserve(325);
+    for (std::size_t i {0}; i < data.capacity(); ++i) {
+        data.emplace_back(static_cast<float>(i));
+    }
+    std::vector<float> r {};
+    r.resize(data.size());
+    detail::vblas::tanh(data.size(), r.data(), data.data());
+    for (std::size_t i {}; i < data.size(); ++i) {
+        ASSERT_EQ(r[i], std::tanh(data[i]));
+    }
+}
+
+GTEST_TEST(vblas, relu_f32) {
+    using detail::vblas::gelu_coeff;
+    using detail::vblas::sqrt2pi;
+    std::vector<float> data {};
+    data.reserve(325);
+    for (std::size_t i {0}; i < data.capacity(); ++i) {
+        data.emplace_back(static_cast<float>(i % 2 == 0 ? -i : i));
+    }
+    std::vector<float> r {};
+    r.resize(data.size());
+    detail::vblas::relu(data.size(), r.data(), data.data());
+    for (std::size_t i {}; i < data.size(); ++i) {
+        ASSERT_EQ(r[i], std::max(0.0f, data[i]));
+    }
+}
+
+GTEST_TEST(vblas, gelu_f32) {
+    using detail::vblas::gelu_coeff;
+    using detail::vblas::sqrt2pi;
+    std::vector<float> data {};
+    data.reserve(325);
+    for (std::size_t i {0}; i < data.capacity(); ++i) {
+        data.emplace_back(static_cast<float>(i % 2 == 0 ? -i : i));
+    }
+    std::vector<float> r {};
+    r.resize(data.size());
+    detail::vblas::gelu(data.size(), r.data(), data.data());
+    for (std::size_t i {}; i < data.size(); ++i) {
+        ASSERT_EQ(r[i], 0.5f * data[i] * (1.0f + std::tanh(sqrt2pi * data[i] * (1.0f + gelu_coeff * data[i] * data[i]))));
+    }
+}
+
 GTEST_TEST(vblas, add_f32) {
     std::vector<float> x {}, y {}, r {};
-    std::generate_n(std::back_inserter(x), 325, []() { return 1.0f; });
-    std::generate_n(std::back_inserter(y), 325, []() { return 2.0f; });
+    std::generate_n(std::back_inserter(x), 325, []() noexcept -> float { return 1.0f; });
+    std::generate_n(std::back_inserter(y), 325, []() noexcept -> float { return 2.0f; });
     r.resize(x.size());
     detail::vblas::add(x.size(), r.data(), x.data(), y.data());
     for (std::size_t i {}; i < x.size(); ++i) {
@@ -193,6 +267,90 @@ GTEST_TEST(vblas, dot_f32) {
     const float dot = detail::vblas::dot(data.size(), data.data(), data.data());
     const float dot_ref = std::inner_product(data.begin(), data.end(), data.begin(), 0.0f);
     ASSERT_FLOAT_EQ(dot, dot_ref);
+}
+
+GTEST_TEST(blas, tensor_softmax) {
+    constexpr float x1 {0.7f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    float r1 {};
+    detail::vblas::softmax(1, &r1, &x1);
+    t1->fill(x1);
+    auto* r {softmax(compute_ctx{}, *t1)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, r1);
+    }
+}
+
+GTEST_TEST(blas, tensor_sigmoid) {
+    constexpr float x1 {0.7f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    float r1 {};
+    detail::vblas::sigmoid(1, &r1, &x1);
+    t1->fill(x1);
+    auto* r {sigmoid(compute_ctx{}, *t1)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, r1);
+    }
+}
+
+GTEST_TEST(blas, tensor_tanh) {
+    constexpr float x1 {0.7f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    float r1 {};
+    detail::vblas::tanh(1, &r1, &x1);
+    t1->fill(x1);
+    auto* r {tanh(compute_ctx{}, *t1)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, r1);
+    }
+}
+
+GTEST_TEST(blas, tensor_relu) {
+    constexpr float x1 {0.7f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    float r1 {};
+    detail::vblas::relu(1, &r1, &x1);
+    t1->fill(x1);
+    auto* r {relu(compute_ctx{}, *t1)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, r1);
+    }
+}
+
+GTEST_TEST(blas, tensor_gelu) {
+    constexpr float x1 {0.7f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    float r1 {};
+    detail::vblas::gelu(1, &r1, &x1);
+    t1->fill(x1);
+    auto* r {gelu(compute_ctx{}, *t1)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, r1);
+    }
+}
+
+GTEST_TEST(blas, tensor_silu) {
+    constexpr float x1 {0.7f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    float r1 {};
+    detail::vblas::silu(1, &r1, &x1);
+    t1->fill(x1);
+    auto* r {silu(compute_ctx{}, *t1)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, r1);
+    }
 }
 
 GTEST_TEST(blas, tensor_add_f32) {
