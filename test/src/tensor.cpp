@@ -130,7 +130,7 @@ TEST(tensor, tensor_fill) {
 TEST(tensor, tensor_fill_fn) {
     context ctx {};
     auto* t {tensor::create(&ctx, {4, 4, 8, 2})};
-    t->fill_fn([](linear_dim) { return -1.5f; });
+    t->fill_fn([](dim) { return -1.5f; });
     for (const float x : t->buf()) {
         ASSERT_FLOAT_EQ(x, -1.5f);
     }

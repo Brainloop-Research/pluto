@@ -4,12 +4,13 @@
 
 #include "tensor.hpp"
 
-#include <bit>
 #include <array>
 #include <algorithm>
-#include <numbers>
+#include <bit>
+#include <cassert>
 #include <cstdint>
 #include <cmath>
+#include <numbers>
 
 #ifdef __ARM_NEON
 #   include <arm_neon.h>
@@ -18,9 +19,18 @@
 #   include <intrin.h>
 #elif defined(__x86_64__) || defined(_M_AMD64)
 #   include <immintrin.h>
+#   define PT_X86_X64_USE_HADD // Prefer horizontal sum with haddps/vhaddps over manual sum
 #endif
 
 namespace pluto {
+    // Context for compute operations
+    struct compute_ctx final {
+        const dim thread_idx;     // Current thread index - Must be >= 0
+        const dim num_threads;    // Total number of threads Must be > 0
+        constexpr explicit compute_ctx(const dim thread_idx = 0, const dim num_threads = 1) noexcept
+            : thread_idx{std::max<dim>(0, thread_idx)}, num_threads{std::max<dim>(1, num_threads)} {}
+    };
+
     // IEEE 754 754-2008 binary 16 (half precision float)
     struct f16 final {
         std::uint16_t bits {};
@@ -76,8 +86,8 @@ namespace pluto {
             #endif
         }
 
-        static inline auto cvt_f16_to_f32_vec(const linear_dim n, float* const o, const f16* const x) noexcept -> void {
-            linear_dim i {};
+        static inline auto cvt_f16_to_f32_vec(const dim n, float* const o, const f16* const x) noexcept -> void {
+            dim i {};
             #ifdef __ARM_NEON
                 for (; i+7 < n; i += 8) {
                     const float16x8_t v0 {vld1q_f16(reinterpret_cast<const float16_t*>(x+i))};
@@ -97,8 +107,8 @@ namespace pluto {
             }
         }
 
-        static inline auto cvt_f32_to_f16_vec(const linear_dim n, f16* const o, const float* const x) noexcept -> void {
-            linear_dim i {};
+        static inline auto cvt_f32_to_f16_vec(const dim n, f16* const o, const float* const x) noexcept -> void {
+            dim i {};
             #ifdef __F16C__
                 for (; i+7 < n; i += 8) {
                     _mm_storeu_si128(
@@ -201,8 +211,8 @@ namespace pluto {
             return std::bit_cast<float>(static_cast<std::uint32_t>(bits)<<16); // bf16 is basically a truncated f32
         }
 
-        static inline auto cvt_bf16_to_f32_vec(const linear_dim n, float* const o, const bf16* const x) noexcept -> void {
-            linear_dim i {};
+        static inline auto cvt_bf16_to_f32_vec(const dim n, float* const o, const bf16* const x) noexcept -> void {
+            dim i {};
             #ifdef __AVX512F__
                 for (; i+15 < n; i += 16) {
                     _mm512_storeu_ps(o+i,
@@ -250,8 +260,8 @@ namespace pluto {
             }
         }
 
-        static inline auto cvt_f32_to_bf16_vec(const linear_dim n, bf16* const o, const float* const x) noexcept -> void {
-            linear_dim i {};
+        static inline auto cvt_f32_to_bf16_vec(const dim n, bf16* const o, const float* const x) noexcept -> void {
+            dim i {};
             #ifdef __AVX512BF16__
                 for (; i+31 < n; i += 32) {
                     _mm512_storeu_si512(
@@ -313,14 +323,114 @@ namespace pluto {
     };
     static_assert(sizeof(bf16) == 2);
 
-    namespace vblas { // Vector BLAS
-        #define PT_X86_X64_USE_HADD
+    template <typename T, typename... Ts>
+    concept is_any = std::disjunction_v<std::is_same<T, Ts>...>;
 
-        template <typename T>
-        inline auto dot(linear_dim n, const T* x, const T* y) noexcept -> T;
+    template <typename T>
+    concept is_dtype = is_any<T, float>;
+
+    // Vector BLAS
+    namespace detail::vblas {
+        // Unary VOPS
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC softmax(dim n, T* __restrict__ o, const T* __restrict__ x) noexcept -> void;
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC sigmoid(dim n, T* __restrict__ o, const T* __restrict__ x) noexcept -> void;
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC tanh(dim n, T* __restrict__ o, const T* __restrict__ x) noexcept -> void;
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC relu(dim n, T* __restrict__ o, const T* __restrict__ x) noexcept -> void;
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC gelu(dim n, T* __restrict__ o, const T* __restrict__ x) noexcept -> void;
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC silu(dim n, T* __restrict__ o, const T* __restrict__ x) noexcept -> void;
+
+        // Binary VOPS
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC add(dim n, T* __restrict__ o, const T* __restrict__ x, const T* __restrict__ y) noexcept -> void;
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC sub(dim n, T* __restrict__ o, const T* __restrict__ x, const T* __restrict__ y) noexcept -> void;
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC mul(dim n, T* __restrict__ o, const T* __restrict__ x, const T* __restrict__ y) noexcept -> void;
+        template <typename T> requires is_dtype<T>
+        inline auto PT_HOTPROC div(dim n, T* __restrict__ o, const T* __restrict__ x, const T* __restrict__ y) noexcept -> void;
+        template <typename T> requires is_dtype<T>
+        [[nodiscard]] inline auto PT_HOTPROC dot(dim n, const T* __restrict__ x, const T* __restrict__ y) noexcept -> T;
 
         template <>
-        inline auto dot(const linear_dim n, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> float {
+        inline auto PT_HOTPROC softmax(const dim n, float* __restrict__ const o, const float* __restrict__ const x) noexcept -> void {
+            for (dim i {}; i < n; ++i) {
+                o[i] = std::exp(x[i]);
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC sigmoid(const dim n, float* __restrict__ const o, const float* __restrict__ const x) noexcept -> void {
+            for (dim i {}; i < n; ++i) {
+                o[i] = 1.0f / (1.0f + std::exp(-x[i]));
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC tanh(const dim n, float* __restrict__ const o, const float* __restrict__ const x) noexcept -> void {
+            for (dim i {}; i < n; ++i) {
+                o[i] = std::tanh(x[i]);
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC relu(const dim n, float* __restrict__ const o, const float* __restrict__ const x) noexcept -> void {
+            for (dim i {}; i < n; ++i) {
+                o[i] = std::max(x[i], 0.0f);
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC gelu(const dim n, float* __restrict__ const o, const float* __restrict__ const x) noexcept -> void {
+            static constexpr float sqrt2pi {0.79788456080286535587989211986876f}; // √(2/π)
+            static constexpr float gelu_coeff {0.044715f}; // GeLU coefficient
+            for (dim i {}; i < n; ++i) {
+                o[i] = 0.5f * x[i] * (1.0f + std::tanh(sqrt2pi * x[i] * (1.0f + gelu_coeff * x[i] * x[i])));
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC silu(const dim n, float* __restrict__ const o, const float* __restrict__ const x) noexcept -> void {
+            for (dim i {}; i < n; ++i) {
+                o[i] = x[i] / (1.0f + std::exp(-x[i]));
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC add(const dim n, float* __restrict__ const o, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> void {
+            for (dim i {}; i < n; ++i) {
+                o[i] = x[i] + y[i];
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC sub(const dim n, float* __restrict__ const o, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> void {
+            for (dim i {}; i < n; ++i) {
+                o[i] = x[i] - y[i];
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC mul(const dim n, float* __restrict__ const o, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> void {
+            for (dim i {}; i < n; ++i) {
+                o[i] = x[i] * y[i];
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC div(const dim n, float* __restrict__ const o, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> void {
+            for (dim i {}; i < n; ++i) {
+                o[i] = x[i] / y[i];
+            }
+        }
+
+        template <>
+        inline auto PT_HOTPROC dot(const dim n, const float* __restrict__ const x, const float* __restrict__ const y) noexcept -> float {
         #ifdef __AVX512F__
             constexpr dim step {64};
             const dim k {n & -step};
@@ -410,14 +520,14 @@ namespace pluto {
             }
             return sum;
         #elif defined(__ARM_NEON)
-            constexpr linear_dim step {16};
-            const linear_dim k {n & -step};
+            constexpr dim step {16};
+            const dim k {n & -step};
             float32x4_t acc[4] {vdupq_n_f32(0)};
             float32x4_t vx[4]; // NOLINT(*-pro-type-member-init)
             float32x4_t vy[4]; // NOLINT(*-pro-type-member-init)
-            for (linear_dim i {}; i < k; i += step) { // Vectorize
+            for (dim i {}; i < k; i += step) { // Vectorize
                 #pragma GCC unroll 4
-                for (linear_dim j {}; j < 4; ++j) { // Unroll
+                for (dim j {}; j < 4; ++j) { // Unroll
                     vx[j] = vld1q_f32(x+i+(j<<2));
                     vy[j] = vld1q_f32(y+i+(j<<2));
                     acc[j] = vfmaq_f32(acc[j], vx[j], vy[j]); // Fused multiply-accumulate
@@ -427,7 +537,7 @@ namespace pluto {
             *acc = vaddq_f32(*acc, acc[2]); // Reduce to scalar with horizontal sum
             *acc = vaddq_f32(*acc, acc[1]); // Reduce to scalar with horizontal sum
             float sum {vaddvq_f32(*acc)}; // Reduce to scalar with horizontal sum
-            for (linear_dim i {k}; i < n; ++i) { // Process leftovers scalar-wise
+            for (dim i {k}; i < n; ++i) { // Process leftovers scalar-wise
                 sum += x[i]*y[i];
             }
             return sum;
@@ -439,5 +549,111 @@ namespace pluto {
             return static_cast<float>(sum);
         #endif
         }
+    }
+
+    namespace detail {
+        template <typename F, typename S>
+        concept is_vector_op = requires {
+            is_dtype<S>;
+            std::is_nothrow_invocable_r_v<void, F, S*, const S*, const S*>; // auto f(S* r, const S* x, const S* y) -> void
+        };
+
+        template <typename F, typename S>
+        concept is_scalar_op = requires {
+            is_dtype<S>;
+            std::is_nothrow_invocable_r_v<S, F, S, S>; // auto f(S x, S y) -> S
+        };
+
+        template <typename T, typename V_OP, typename S_OP> requires requires {
+            is_dtype<T>;
+            is_vector_op<V_OP, T>;
+            is_scalar_op<S_OP, T>;
+        }
+        static auto PT_AINLINE PT_HOTPROC gen_binary_op(
+            const compute_ctx& ctx,
+            tensor& r,       // result
+            const tensor& x, // X = src 0
+            const tensor& y, // Y = src 1
+            V_OP&& v_op,        // Vector OP
+            S_OP&& s_op         // Scalar OP
+        ) noexcept -> void {
+            assert(x.is_shape_eq(&r));  // Debug only verification - ! must be checked by validation function, TODO: Check broadcasting OP
+            auto* const b_r{reinterpret_cast<std::byte*>(r.buf().data())};                                            // Data base ptr
+            const auto* const b_x{reinterpret_cast<const std::byte*>(x.buf().data())};                           // Data base ptr
+            const auto* const b_y{reinterpret_cast<const std::byte*>(y.buf().data())};                           // Data base ptr
+            const auto [x_d0, x_d1, x_d2, x_d3] {x.shape()};            // Dimensions of x
+            const auto [x_s0, x_s1, x_s2, x_s3] {x.strides()};          // Strides of x
+            const auto [y_d0, y_d1, y_d2, y_d3] {y.shape()};            // Dimensions of y
+            const auto [y_s0, y_s1, y_s2, y_s3] {y.strides()};          // Strides of y
+            const auto [r_d0, r_d1, r_d2, r_d3] {r.shape()};            // Dimensions of r
+            const auto [r_s0, r_s1, r_s2, r_s3] {r.strides()};          // Strides of r
+            const dim rc {r.row_count()};                                    // Row count (number of columns in first dim): r.dims()[0]
+            const dim tidx {ctx.thread_idx};                                 // Current thread index
+            const dim tc {ctx.num_threads};                                  // Current thread count
+            const dim rpt {(rc + tc - 1)/tc};                                // Rows per thread
+            const dim row_start {rpt * tidx};                                // Current thread row interval start
+            const dim row_end {std::min(row_start + rpt, rc)};               // Current thread row interval end
+            for (dim row_i {row_start}; row_i < row_end; ++row_i) {          // For each row
+                const dim x_i3 {row_i / (x_d2*x_d1)};                        // Dimension 3 - Linear to multidim index
+                const dim x_i2 {(row_i - x_i3*x_d2*x_d1)/x_d1};              // Dimension 2 - Linear to multidim index
+                const dim x_i1 {row_i - x_i3*x_d2*x_d1 - x_i2*x_d1};         // Dimension 1 - Linear to multidim index
+                const dim y_i3 {x_i3 % y_d3};                                // Dimension 3 Broadcast x -> y
+                const dim y_i2 {x_i2 % y_d2};                                // Dimension 2 Broadcast x -> y
+                const dim y_i1 {x_i1 % y_d1};                                // Dimension 1 Broadcast x -> y
+                auto* const p_r {reinterpret_cast<T*>(b_r + x_i3*r_s3 + x_i2*r_s2 + x_i1*r_s1)};
+                const auto* const p_x {reinterpret_cast<const T*>(b_x + x_i3*x_s3 + x_i2*x_s2 + x_i1*x_s1)};
+                if (sizeof(T) == y.strides().front()) { // Fast path - dense kernel for contiguous layout
+                    const auto* const p_y {reinterpret_cast<const T*>(b_y + y_i3*y_s3 + y_i2*y_s2 + y_i1*y_s1)};
+                    for (dim i {}; i < x_d0 / y_d0; ++i) { // Macro kernel
+                        std::invoke(v_op, y_d0, p_r + i*y_d0, p_x + i*y_d0, p_y); // Micro Kernel -> apply vector operation
+                    }
+                } else { // Slow path
+                    for (dim i {}; i < r_d0; ++i) { // Micro kernel
+                        const auto* const p_y {reinterpret_cast<const T*>(b_y + y_i3*y_s3 + y_i2*y_s2 + y_i1*y_s1 + i%y_d0*y_s0)};
+                        p_r[i] = std::invoke(s_op, p_x[i], *p_y); // Apply scalar operation
+                    }
+                }
+            }
+        }
+    }
+
+    inline auto add(
+        const compute_ctx& ctx,
+        const tensor& x,
+        const tensor& y
+    ) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_binary_op<float>(ctx, *r, x, y, detail::vblas::add<float>, std::plus<float>{});
+        return r;
+    }
+
+    inline auto sub(
+        const compute_ctx& ctx,
+        const tensor& x,
+        const tensor& y
+    ) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_binary_op<float>(ctx, *r, x, y, detail::vblas::sub<float>, std::minus<float>{});
+        return r;
+    }
+
+    inline auto mul(
+        const compute_ctx& ctx,
+        const tensor& x,
+        const tensor& y
+    ) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_binary_op<float>(ctx, *r, x, y, detail::vblas::mul<float>, std::multiplies<float>{});
+        return r;
+    }
+
+    inline auto div(
+        const compute_ctx& ctx,
+        const tensor& x,
+        const tensor& y
+    ) noexcept -> tensor* {
+        tensor *const r = x.isomorphic_clone();
+        detail::gen_binary_op<float>(ctx, *r, x, y, detail::vblas::div<float>, std::divides<float>{});
+        return r;
     }
 }

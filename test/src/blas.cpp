@@ -1,6 +1,7 @@
 // (c) 2024 Brainloop Research. <mario.sieg.64@gmail.com>
 
 #include <numeric>
+
 #include "prelude.hpp"
 
 using namespace pluto;
@@ -139,13 +140,113 @@ GTEST_TEST(blas, cvt_f32_to_bf16_vec) {
     }
 }
 
+GTEST_TEST(vblas, add_f32) {
+    std::vector<float> x {}, y {}, r {};
+    std::generate_n(std::back_inserter(x), 325, []() { return 1.0f; });
+    std::generate_n(std::back_inserter(y), 325, []() { return 2.0f; });
+    r.resize(x.size());
+    detail::vblas::add(x.size(), r.data(), x.data(), y.data());
+    for (std::size_t i {}; i < x.size(); ++i) {
+        ASSERT_FLOAT_EQ(r[i], x[i] + y[i]);
+    }
+}
+
+GTEST_TEST(vblas, sub_f32) {
+    std::vector<float> x {}, y {}, r {};
+    std::generate_n(std::back_inserter(x), 325, []() { return 1.0f; });
+    std::generate_n(std::back_inserter(y), 325, []() { return 2.0f; });
+    r.resize(x.size());
+    detail::vblas::sub(x.size(), r.data(), x.data(), y.data());
+    for (std::size_t i {}; i < x.size(); ++i) {
+        ASSERT_FLOAT_EQ(r[i], x[i] - y[i]);
+    }
+}
+
+GTEST_TEST(vblas, mul_f32) {
+    std::vector<float> x {}, y {}, r {};
+    std::generate_n(std::back_inserter(x), 325, []() { return 1.0f; });
+    std::generate_n(std::back_inserter(y), 325, []() { return 2.0f; });
+    r.resize(x.size());
+    detail::vblas::mul(x.size(), r.data(), x.data(), y.data());
+    for (std::size_t i {}; i < x.size(); ++i) {
+        ASSERT_FLOAT_EQ(r[i], x[i] * y[i]);
+    }
+}
+
+GTEST_TEST(vblas, div_f32) {
+    std::vector<float> x {}, y {}, r {};
+    std::generate_n(std::back_inserter(x), 325, []() { return 1.0f; });
+    std::generate_n(std::back_inserter(y), 325, []() { return 2.0f; });
+    r.resize(x.size());
+    detail::vblas::div(x.size(), r.data(), x.data(), y.data());
+    for (std::size_t i {}; i < x.size(); ++i) {
+        ASSERT_FLOAT_EQ(r[i], x[i] / y[i]);
+    }
+}
+
 GTEST_TEST(vblas, dot_f32) {
     std::vector<float> data {};
     data.reserve(325);
     for (std::size_t i {0}; i < data.capacity(); ++i) {
         data.emplace_back(static_cast<float>(i));
     }
-    const float dot = vblas::dot(data.size(), data.data(), data.data());
+    const float dot = detail::vblas::dot(data.size(), data.data(), data.data());
     const float dot_ref = std::inner_product(data.begin(), data.end(), data.begin(), 0.0f);
     ASSERT_FLOAT_EQ(dot, dot_ref);
+}
+
+GTEST_TEST(blas, tensor_add_f32) {
+    constexpr float x1 {1.0f}, x2 {2.0f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
+    t1->fill(x1);
+    t2->fill(x2);
+    auto* r {add(compute_ctx{}, *t1, *t2)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, x1 + x2);
+    }
+}
+
+GTEST_TEST(blas, tensor_sub_f32) {
+    constexpr float x1 {1.0f}, x2 {2.0f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
+    t1->fill(x1);
+    t2->fill(x2);
+    auto* r {sub(compute_ctx{}, *t1, *t2)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, x1 - x2);
+    }
+}
+
+GTEST_TEST(blas, tensor_mul_f32) {
+    constexpr float x1 {1.0f}, x2 {2.0f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
+    t1->fill(x1);
+    t2->fill(x2);
+    auto* r {mul(compute_ctx{}, *t1, *t2)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, x1 * x2);
+    }
+}
+
+GTEST_TEST(blas, tensor_div_f32) {
+    constexpr float x1 {1.0f}, x2 {2.0f};
+    context ctx {};
+    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
+    t1->fill(x1);
+    t2->fill(x2);
+    auto* r {div(compute_ctx{}, *t1, *t2)};
+    ASSERT_TRUE(r->is_shape_eq(t1));
+    for (const float x : r->buf()) {
+        ASSERT_FLOAT_EQ(x, x1 / x2);
+    }
 }
