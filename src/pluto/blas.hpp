@@ -1,4 +1,4 @@
-// (c) 2024 Brainloop Research, Mario Sieg. <mario.sieg.64@gmail.com>
+// (c) 2024 Mario "Neo" Sieg. <mario.sieg.64@gmail.com>
 
 #pragma once
 
@@ -22,7 +22,7 @@
 #   define PT_X86_X64_USE_HADD // Prefer horizontal sum with haddps/vhaddps over manual sum
 #endif
 
-namespace pluto {
+namespace pluto::blas {
     // Context for compute operations
     struct compute_ctx final {
         const dim thread_idx;     // Current thread index - Must be >= 0
@@ -570,7 +570,7 @@ namespace pluto {
             is_vector_op<V_OP, T>;
         }
         static auto PT_AINLINE PT_HOTPROC gen_unary_op(
-            const compute_ctx& ctx,
+            [[maybe_unused]] const compute_ctx& ctx,
             tensor& r,          // result
             const tensor& x,    // X = src 0
             V_OP&& v_op         // Vector OP

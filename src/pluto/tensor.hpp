@@ -1,8 +1,9 @@
-// (c) 2024 Brainloop Research, Mario Sieg. <mario.sieg.64@gmail.com>
+// (c) 2024 Mario "Neo" Sieg. <mario.sieg.64@gmail.com>
 
 #pragma once
 
 #include "core.hpp"
+#include "graph.hpp"
 
 #include <numeric>
 #include <span>
@@ -81,11 +82,17 @@ namespace pluto {
             }
         }
 
+        [[nodiscard]] auto get_args() noexcept -> std::span<tensor*> { return {m_args.data(), m_num_args}; }
+        [[nodiscard]] auto get_op_code() const noexcept -> graph::opcode { return m_op; }
+
     private:
         context* m_ctx {}; // Context host
         std::span<float> m_buf {}; // Pointer to the data
         std::array<dim, max_dims> m_shape {}; // Cardinality of each dimension
         std::array<dim, max_dims> m_strides {}; // Byte strides for each dimension
         dim m_rank {}; // Number of dimensions
+        [[maybe_unused]] std::array<tensor*, graph::max_args> m_args {}; // Arguments for the operation
+        std::size_t m_num_args {}; // Number of arguments
+        [[maybe_unused]] graph::opcode m_op {}; // Operation code
     };
 }

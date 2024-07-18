@@ -5,6 +5,7 @@
 #include "prelude.hpp"
 
 using namespace pluto;
+using namespace blas;
 
 static constexpr std::array<f16, 16> f16_vec {
     f16::e(),
