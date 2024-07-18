@@ -571,9 +571,9 @@ namespace pluto {
         }
         static auto PT_AINLINE PT_HOTPROC gen_binary_op(
             const compute_ctx& ctx,
-            tensor& r,       // result
-            const tensor& x, // X = src 0
-            const tensor& y, // Y = src 1
+            tensor& r,          // result
+            const tensor& x,    // X = src 0
+            const tensor& y,    // Y = src 1
             V_OP&& v_op,        // Vector OP
             S_OP&& s_op         // Scalar OP
         ) noexcept -> void {
