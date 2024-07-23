@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdio>
+#include <cstring>
+#include <functional>
 #include <memory>
 #include <vector>
 
