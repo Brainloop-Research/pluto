@@ -50,10 +50,11 @@ namespace pluto::graph {
         #undef inject_enum
     };
     constexpr std::array<std::uint8_t, static_cast<std::size_t>(opcode::len_)> opcode_arg_counts {
-        #define inject_enum(_, __, ___, argcount) (0xff&(argcount))
+        #define inject_enum(_, __, ___, argcount) (argcount)
             pt_opdef(inject_enum, PT_ENUM_SEP)
         #undef inject_enum
     };
+    static_assert(std::all_of(opcode_arg_counts.begin(), opcode_arg_counts.end(), [](const std::uint8_t arg) noexcept -> bool { return arg <= max_args; }));
 
     #undef pt_opdef
 

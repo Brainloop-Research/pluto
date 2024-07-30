@@ -98,18 +98,18 @@ namespace pluto::graph {
 
     auto verify(tensor* const root, const graph_eval_order order) -> bool {
         blas::compute_ctx ctx {};
-        const auto verifyer = [&ctx](tensor* const t) -> bool {
+        const auto verifyer {[&ctx](tensor* const t) -> bool {
             return (*verify_op_lut[static_cast<std::size_t>(t->get_op_code())])(ctx, t->get_args());
-        };
+        }};
         if (order == graph_eval_order::left_to_right) return graph_visit<graph_eval_order::left_to_right>(root, verifyer);
         else return graph_visit<graph_eval_order::right_to_left>(root, verifyer);
     }
 
     auto eval(tensor* const root, const graph_eval_order order) -> std::pair<tensor*, bool> {
         blas::compute_ctx ctx {};
-        const auto evaluator = [&ctx](tensor* const t, tensor*& r) -> bool {
+        const auto evaluator {[&ctx](tensor* const t, tensor*& r) -> bool {
             return (*eval_op_lut[static_cast<std::size_t>(t->get_op_code())])(ctx, r, t->get_args());
-        };
+        }};
         std::pair<tensor*, bool> r {};
         if (order == graph_eval_order::left_to_right) r.second = graph_visit<graph_eval_order::left_to_right>(root, evaluator, r.first);
         else r.second = graph_visit<graph_eval_order::right_to_left>(root, evaluator, r.first);
