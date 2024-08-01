@@ -643,40 +643,96 @@ namespace pluto::blas {
                 }
             }
         }
+
+        /*
+        * BLAS SGEMM (Single precision General Matrix Multiply)
+        * Compute the matrix product of two matrices X and Y: R = X @ Y
+        * TODO: This is a naive implementation and not optimized.
+        * TODO: Thread partitioning
+        * TODO: optimize for cache efficiency and SIMD (use vec::dot)
+        * TODO: Handle broadcasting
+        */
+        template <typename T> requires is_dtype<T>
+        auto PT_AINLINE PT_HOTPROC gen_gemm(
+            const compute_ctx& ctx,
+            tensor& r,          // result
+            const tensor& x,    // X = src 0
+            const tensor& y     // Y = src 1
+        ) noexcept -> void;
+
+        template <>
+        auto PT_AINLINE PT_HOTPROC gen_gemm<float>( // Compute R = X @ (Y^T)
+            [[maybe_unused]] const compute_ctx& ctx,
+            [[maybe_unused]] tensor& r,          // result
+            [[maybe_unused]] const tensor& x,    // X = src 0
+            [[maybe_unused]] const tensor& y     // Y = src 1
+        ) noexcept -> void {
+            assert(x.is_matmul_compatible(&y));
+            auto* const b_r {reinterpret_cast<std::byte*>(r.buf().data())};
+            const auto* const b_x {reinterpret_cast<const std::byte*>(r.buf().data())};
+            const auto* const b_y {reinterpret_cast<const std::byte*>(r.buf().data())};
+            const auto [x_d0, x_d1, x_d2, x_d3] {x.shape()};
+            const auto [x_s0, x_s1, x_s2, x_s3] {x.strides()};
+            const auto [y_s0, y_s1, y_s2, y_s3] {y.strides()};
+            const auto [r_d0, r_d1, r_d2, r_d3] {r.shape()};
+            const auto [r_s0, r_s1, r_s2, r_s3] {r.strides()};
+            for (dim i3 {}; i3 < r_d3; ++i3) {
+                for (dim i2 {}; i2 < r_d2; ++i2) {
+                    for (dim i1 {}; i1 < r_d1; ++i1) {
+                        for (dim i0 {}; i0 < r_d1; ++i0) {
+                            double sum {}; // TODO: optimize and use vec::dot
+                            for (dim k {}; k < x_d0; ++k) {
+                                const auto* const p_x {reinterpret_cast<const float*>(
+                                    b_x + k*x_s0 + i0*x_s1 + i2*x_s2 + i3*x_s3
+                                )};
+                                const auto* const p_y {reinterpret_cast<const float*>(
+                                    b_y + i1*y_s0 + k*y_s1 + i2*y_s2 + i3*y_s3
+                                )};
+                                sum += static_cast<double>(*p_x**p_y);
+                            }
+                            auto* const p_r {reinterpret_cast<float*>(
+                                b_r + i1*r_s0 + i0*r_s1 + i2*r_s2 + i3*r_s3
+                            )};
+                            *p_r = static_cast<float>(sum);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     inline auto softmax(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::softmax<float>);
         return r;
     }
 
     inline auto sigmoid(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::sigmoid<float>);
         return r;
     }
 
     inline auto tanh(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::tanh<float>);
         return r;
     }
 
     inline auto relu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::relu<float>);
         return r;
     }
 
     inline auto gelu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::gelu<float>);
         return r;
     }
 
     inline auto silu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::silu<float>);
         return r;
     }
@@ -686,7 +742,7 @@ namespace pluto::blas {
         const tensor& x,
         const tensor& y
     ) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_binary_op<float>(ctx, *r, x, y, detail::vblas::add<float>, std::plus<float>{});
         return r;
     }
@@ -696,7 +752,7 @@ namespace pluto::blas {
         const tensor& x,
         const tensor& y
     ) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_binary_op<float>(ctx, *r, x, y, detail::vblas::sub<float>, std::minus<float>{});
         return r;
     }
@@ -706,7 +762,7 @@ namespace pluto::blas {
         const tensor& x,
         const tensor& y
     ) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_binary_op<float>(ctx, *r, x, y, detail::vblas::mul<float>, std::multiplies<float>{});
         return r;
     }
@@ -716,8 +772,19 @@ namespace pluto::blas {
         const tensor& x,
         const tensor& y
     ) noexcept -> tensor* {
-        tensor *const r = x.isomorphic_clone();
+        tensor* const r {x.isomorphic_clone()};
         detail::gen_binary_op<float>(ctx, *r, x, y, detail::vblas::div<float>, std::divides<float>{});
+        return r;
+    }
+
+    inline auto matmul(
+        const compute_ctx& ctx,
+        const tensor& x,
+        const tensor& y
+    ) noexcept -> tensor* {
+        const std::array<dim, max_dims> shape {x.shape()[1], y.shape()[1], y.shape()[2], y.shape()[3]};
+        tensor* const r {tensor::create(x.ctx(), shape)};
+        detail::gen_gemm<float>(ctx, *r, x, y);
         return r;
     }
 }

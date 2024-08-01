@@ -5,6 +5,7 @@
 #include "core.hpp"
 #include "graph.hpp"
 
+#include <cassert>
 #include <numeric>
 #include <span>
 
@@ -37,6 +38,7 @@ namespace pluto {
             return t;
         }
 
+        [[nodiscard]] auto ctx() const noexcept -> context* { return m_ctx; }
         [[nodiscard]] auto rank() const noexcept -> dim { return m_rank; }
         [[nodiscard]] auto shape() const noexcept -> const std::array<dim, max_dims>& { return m_shape; }
         [[nodiscard]] auto strides() const noexcept -> const std::array<dim, max_dims>& { return m_strides; }
@@ -68,10 +70,15 @@ namespace pluto {
         }
         [[nodiscard]] auto is_higher_order3d() const noexcept -> bool { return m_shape[max_dims-1] == 1; }
         [[nodiscard]] auto is_shape_eq(const tensor* const other) const noexcept -> bool { return m_rank == other->m_rank && m_shape == other->m_shape; }
+        [[nodiscard]] auto is_matmul_compatible(const tensor* const other) const noexcept -> bool { return m_shape[0] == other->m_shape[1]; }
 
         auto fill(const float val) noexcept -> void {
             if (val == 0.0f) std::memset(m_buf.data(), 0, m_buf.size()*sizeof(float));
             else std::fill(m_buf.begin(), m_buf.end(), val);
+        }
+        auto populate(const std::span<const float> values) noexcept -> void {
+            assert(m_buf.size() == values.size());
+            std::copy(values.begin(), values.end(), m_buf.begin());
         }
 
         template <typename F> requires std::is_invocable_r_v<float, F, dim>
