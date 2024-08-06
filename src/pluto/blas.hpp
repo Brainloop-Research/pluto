@@ -663,9 +663,9 @@ namespace pluto::blas {
         template <>
         auto PT_AINLINE PT_HOTPROC gen_gemm<float>( // Compute R = X @ (Y^T)
             [[maybe_unused]] const compute_ctx& ctx,
-            [[maybe_unused]] tensor& r,          // result
-            [[maybe_unused]] const tensor& x,    // X = src 0
-            [[maybe_unused]] const tensor& y     // Y = src 1
+            tensor& r,          // result
+            const tensor& x,    // X = src 0
+            const tensor& y     // Y = src 1
         ) noexcept -> void {
             assert(x.is_matmul_compatible(&y));
             auto* const b_r {reinterpret_cast<std::byte*>(r.buf().data())};
