@@ -606,36 +606,46 @@ namespace pluto::blas {
             S_OP&& s_op         // Scalar OP
         ) noexcept -> void {
             assert(x.is_shape_eq(&r));  // Debug only verification - ! must be checked by validation function, TODO: Check broadcasting OP
-            auto* const b_r{reinterpret_cast<std::byte*>(r.buf().data())};                                            // Data base ptr
-            const auto* const b_x{reinterpret_cast<const std::byte*>(x.buf().data())};                           // Data base ptr
-            const auto* const b_y{reinterpret_cast<const std::byte*>(y.buf().data())};                           // Data base ptr
-            const auto [x_d0, x_d1, x_d2, x_d3] {x.shape()};            // Dimensions of x
-            const auto [x_s0, x_s1, x_s2, x_s3] {x.strides()};          // Strides of x
-            const auto [y_d0, y_d1, y_d2, y_d3] {y.shape()};            // Dimensions of y
-            const auto [y_s0, y_s1, y_s2, y_s3] {y.strides()};          // Strides of y
-            const auto [r_d0, r_d1, r_d2, r_d3] {r.shape()};            // Dimensions of r
-            const auto [r_s0, r_s1, r_s2, r_s3] {r.strides()};          // Strides of r
-            const dim rc {r.row_count()};                                    // Row count (number of columns in first dim): r.dims()[0]
-            const dim tidx {ctx.thread_idx};                                 // Current thread index
-            const dim tc {ctx.num_threads};                                  // Current thread count
-            const dim rpt {(rc + tc - 1)/tc};                                // Rows per thread
-            const dim row_start {rpt * tidx};                                // Current thread row interval start
-            const dim row_end {std::min(row_start + rpt, rc)};               // Current thread row interval end
-            for (dim row_i {row_start}; row_i < row_end; ++row_i) {          // For each row
-                const dim x_i3 {row_i / (x_d2*x_d1)};                        // Dimension 3 - Linear to multidim index
-                const dim x_i2 {(row_i - x_i3*x_d2*x_d1)/x_d1};              // Dimension 2 - Linear to multidim index
-                const dim x_i1 {row_i - x_i3*x_d2*x_d1 - x_i2*x_d1};         // Dimension 1 - Linear to multidim index
-                const dim y_i3 {x_i3 % y_d3};                                // Dimension 3 Broadcast x -> y
-                const dim y_i2 {x_i2 % y_d2};                                // Dimension 2 Broadcast x -> y
-                const dim y_i1 {x_i1 % y_d1};                                // Dimension 1 Broadcast x -> y
-                auto* const p_r {reinterpret_cast<T*>(b_r + x_i3*r_s3 + x_i2*r_s2 + x_i1*r_s1)};
-                const auto* const p_x {reinterpret_cast<const T*>(b_x + x_i3*x_s3 + x_i2*x_s2 + x_i1*x_s1)};
-                if (sizeof(T) == y.strides().front()) { // Fast path - dense kernel for contiguous layout
+            auto* const b_r{reinterpret_cast<std::byte*>(r.buf().data())};                    // Data base ptr
+            const auto* const b_x{reinterpret_cast<const std::byte*>(x.buf().data())};   // Data base ptr
+            const auto* const b_y{reinterpret_cast<const std::byte*>(y.buf().data())};   // Data base ptr
+            const auto [x_d0, x_d1, x_d2, x_d3] {x.shape()};   // Dimensions of x
+            const auto [x_s0, x_s1, x_s2, x_s3] {x.strides()}; // Strides of x
+            const auto [y_d0, y_d1, y_d2, y_d3] {y.shape()};   // Dimensions of y
+            const auto [y_s0, y_s1, y_s2, y_s3] {y.strides()}; // Strides of y
+            const auto [r_d0, r_d1, r_d2, r_d3] {r.shape()};   // Dimensions of r
+            const auto [r_s0, r_s1, r_s2, r_s3] {r.strides()}; // Strides of r
+            const dim rc {r.row_count()};                                   // Row count (number of columns in first dim): r.dims()[0]
+            const dim tidx {ctx.thread_idx};                                // Current thread index
+            const dim tc {ctx.num_threads};                                 // Current thread count
+            const dim rpt {(rc + tc - 1)/tc};                               // Rows per thread
+            const dim row_start {rpt * tidx};                               // Current thread row interval start
+            const dim row_end {std::min(row_start + rpt, rc)};              // Current thread row interval end
+            if (sizeof(T) == y.strides().front()) {                         // Fast path - dense kernel for contiguous layout
+                for (dim row_i {row_start}; row_i < row_end; ++row_i) {     // For each row
+                    const dim x_i3 {row_i / (x_d2*x_d1)};                   // Dimension 3 - Linear to multidim index
+                    const dim x_i2 {(row_i - x_i3*x_d2*x_d1)/x_d1};         // Dimension 2 - Linear to multidim index
+                    const dim x_i1 {row_i - x_i3*x_d2*x_d1 - x_i2*x_d1};    // Dimension 1 - Linear to multidim index
+                    const dim y_i3 {x_i3 % y_d3};                           // Dimension 3 Broadcast x -> y
+                    const dim y_i2 {x_i2 % y_d2};                           // Dimension 2 Broadcast x -> y
+                    const dim y_i1 {x_i1 % y_d1};                           // Dimension 1 Broadcast x -> y
+                    auto* const p_r {reinterpret_cast<T*>(b_r + x_i3*r_s3 + x_i2*r_s2 + x_i1*r_s1)};
+                    const auto* const p_x {reinterpret_cast<const T*>(b_x + x_i3*x_s3 + x_i2*x_s2 + x_i1*x_s1)};
                     const auto* const p_y {reinterpret_cast<const T*>(b_y + y_i3*y_s3 + y_i2*y_s2 + y_i1*y_s1)};
                     for (dim i {}; i < x_d0 / y_d0; ++i) { // Macro kernel
                         std::invoke(v_op, y_d0, p_r + i*y_d0, p_x + i*y_d0, p_y); // Micro Kernel -> apply vector operation
                     }
-                } else { // Slow path
+                }
+            } else {
+                for (dim row_i {row_start}; row_i < row_end; ++row_i) {          // For each row
+                    const dim x_i3 {row_i / (x_d2*x_d1)};                        // Dimension 3 - Linear to multidim index
+                    const dim x_i2 {(row_i - x_i3*x_d2*x_d1)/x_d1};              // Dimension 2 - Linear to multidim index
+                    const dim x_i1 {row_i - x_i3*x_d2*x_d1 - x_i2*x_d1};         // Dimension 1 - Linear to multidim index
+                    const dim y_i3 {x_i3 % y_d3};                                // Dimension 3 Broadcast x -> y
+                    const dim y_i2 {x_i2 % y_d2};                                // Dimension 2 Broadcast x -> y
+                    const dim y_i1 {x_i1 % y_d1};                                // Dimension 1 Broadcast x -> y
+                    auto* const p_r {reinterpret_cast<T*>(b_r + x_i3*r_s3 + x_i2*r_s2 + x_i1*r_s1)};
+                    const auto* const p_x {reinterpret_cast<const T*>(b_x + x_i3*x_s3 + x_i2*x_s2 + x_i1*x_s1)};
                     for (dim i {}; i < r_d0; ++i) { // Micro kernel
                         const auto* const p_y {reinterpret_cast<const T*>(b_y + y_i3*y_s3 + y_i2*y_s2 + y_i1*y_s1 + i%y_d0*y_s0)};
                         p_r[i] = std::invoke(s_op, p_x[i], *p_y); // Apply scalar operation
