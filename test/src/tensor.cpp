@@ -1,4 +1,4 @@
-// (c) 2024 Brainloop Research. <mario.sieg.64@gmail.com>
+// (c) 2024 Mario "Neo" Sieg. <mario.sieg.64@gmail.com>
 
 #include "prelude.hpp"
 
