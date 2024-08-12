@@ -2,20 +2,10 @@
 
 #pragma once
 
-#include "core.hpp"
-
-#include <span>
-
 namespace pluto {
-    class tensor;
-    namespace blas {
-        struct compute_ctx;
-    }
-}
-
-namespace pluto::graph {
     constexpr std::size_t max_args {2};
 
+    #define PT_ENUM_SEP ,
     #define pt_opdef(_, __) /* Operator function "ψ" -> Enumerator | Mnemonic | Info | ArgCount <= PT_OP_ARGMAX */ \
     /* Nullary operations ψ(_) (argument unused but same signature as unary) */\
     _(nop, "nop", "!", 1)__\
@@ -57,15 +47,10 @@ namespace pluto::graph {
     static_assert(std::all_of(opcode_arg_counts.begin(), opcode_arg_counts.end(), [](const std::uint8_t arg) noexcept -> bool { return arg <= max_args; }));
 
     #undef pt_opdef
-
-    using verify_op = auto (*)(const blas::compute_ctx& ctx, std::span<tensor*> args) -> bool;
-    using eval_op = auto (*)(const blas::compute_ctx& ctx, tensor*& r, std::span<tensor*> args) -> void;
+    #undef PT_ENUM_SEP
 
     enum class graph_eval_order : bool {
         left_to_right = true,
         right_to_left = false
     };
-
-    extern auto verify(backend_interface& backend, tensor* root, graph_eval_order order) -> bool;
-    extern auto eval(backend_interface& backend, tensor* root, graph_eval_order order) -> tensor*;
 }

@@ -3,6 +3,7 @@
 #include <numeric>
 
 #include "prelude.hpp"
+#include <pluto/backends/cpu/blas_impl.inl>
 
 using namespace pluto;
 using namespace blas;

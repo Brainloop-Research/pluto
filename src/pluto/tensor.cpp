@@ -102,7 +102,7 @@ namespace pluto {
         std::copy(values.begin(), values.end(), m_buf.begin());
     }
 
-    auto tensor::get_args() noexcept -> std::span<tensor*> { return {m_args.data(), m_num_args}; }
+    auto tensor::get_args() const noexcept -> std::span<const tensor*> { return {const_cast<const tensor**>(m_args.data()), m_num_args}; }
 
-    auto tensor::get_op_code() const noexcept -> graph::opcode { return m_op; }
+    auto tensor::get_op_code() const noexcept -> opcode { return m_op; }
 }

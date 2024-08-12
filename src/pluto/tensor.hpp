@@ -46,8 +46,8 @@ namespace pluto {
         [[nodiscard]] auto is_matmul_compatible(const tensor* other) const noexcept -> bool;
         auto fill(float val) noexcept -> void;
         auto populate(std::span<const float> values) noexcept -> void;
-        [[nodiscard]] auto get_args() noexcept -> std::span<tensor*>;
-        [[nodiscard]] auto get_op_code() const noexcept -> graph::opcode;
+        [[nodiscard]] auto get_args() const noexcept -> std::span<const tensor*>;
+        [[nodiscard]] auto get_op_code() const noexcept -> opcode;
 
         template <typename F> requires std::is_invocable_r_v<float, F, dim>
         auto fill_fn(F&& f) noexcept(std::is_nothrow_invocable_r_v<float, F, dim>) -> void {
@@ -63,8 +63,8 @@ namespace pluto {
         std::array<dim, max_dims> m_shape {}; // Cardinality of each dimension
         std::array<dim, max_dims> m_strides {}; // Byte strides for each dimension
         dim m_rank {}; // Number of dimensions
-        std::array<tensor*, graph::max_args> m_args {}; // Arguments for the operation
+        std::array<const tensor*, max_args> m_args {}; // Arguments for the operation
         std::size_t m_num_args {}; // Number of arguments
-        graph::opcode m_op {}; // Operation code
+        opcode m_op {}; // Operation code
     };
 }
