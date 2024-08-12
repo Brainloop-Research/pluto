@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <string>
 
 namespace pluto {
     class tensor;

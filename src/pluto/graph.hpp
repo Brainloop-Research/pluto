@@ -66,6 +66,6 @@ namespace pluto::graph {
         right_to_left = false
     };
 
-    extern auto verify(tensor* root, graph_eval_order order) -> bool;
-    extern auto eval(tensor* root, graph_eval_order order) -> tensor*;
+    extern auto verify(backend_interface& backend, tensor* root, graph_eval_order order) -> bool;
+    extern auto eval(backend_interface& backend, tensor* root, graph_eval_order order) -> tensor*;
 }
