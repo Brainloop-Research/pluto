@@ -1,8 +1,6 @@
 // (c) 2024 Mario "Neo" Sieg. <mario.sieg.64@gmail.com>
 
-#pragma once
-
-#include "tensor.hpp"
+#include "../../tensor.hpp"
 
 #include <array>
 #include <algorithm>
@@ -23,14 +21,6 @@
 #endif
 
 namespace pluto::blas {
-    // Context for compute operations
-    struct compute_ctx final {
-        const dim thread_idx;     // Current thread index - Must be >= 0
-        const dim num_threads;    // Total number of threads Must be > 0
-        constexpr explicit compute_ctx(const dim thread_idx = 0, const dim num_threads = 1) noexcept
-            : thread_idx{std::max<dim>(0, thread_idx)}, num_threads{std::max<dim>(1, num_threads)} {}
-    };
-
     // IEEE 754 754-2008 binary 16 (half precision float)
     struct f16 final {
         std::uint16_t bits {};
@@ -671,11 +661,11 @@ namespace pluto::blas {
         ) noexcept -> void;
 
         template <>
-        auto PT_AINLINE PT_HOTPROC gen_gemm<float>( // Compute R = X @ (Y^T)
+        auto PT_AINLINE PT_HOTPROC gen_gemm<float>( // Compute R = X @ Y
             [[maybe_unused]] const compute_ctx& ctx,
-            tensor& r,          // result
-            const tensor& x,    // X = src 0
-            const tensor& y     // Y = src 1
+            tensor& r,
+            const tensor& x,
+            const tensor& y
         ) noexcept -> void {
             assert(x.is_matmul_compatible(&y));
             auto* const b_r {reinterpret_cast<std::byte*>(r.buf().data())};

@@ -10,6 +10,8 @@
 #include <memory>
 #include <vector>
 
+#include "backend.hpp"
+
 // Configuration macros
 
 #define PT_ENABLE_LOGGING // Enable logging
@@ -82,6 +84,7 @@ namespace pluto {
     private:
         auto push_chunk() -> void;
 
+        const std::unique_ptr<backend_interface> m_backend;
         std::size_t m_chunk_size {};
         std::vector<std::unique_ptr<std::byte[]>> m_chunks {};
         std::byte* m_delta {};

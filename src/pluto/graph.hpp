@@ -59,7 +59,7 @@ namespace pluto::graph {
     #undef pt_opdef
 
     using verify_op = auto (*)(const blas::compute_ctx& ctx, std::span<tensor*> args) -> bool;
-    using eval_op = auto (*)(const blas::compute_ctx& ctx, tensor*& r, std::span<tensor*> args) -> bool;
+    using eval_op = auto (*)(const blas::compute_ctx& ctx, tensor*& r, std::span<tensor*> args) -> void;
 
     enum class graph_eval_order : bool {
         left_to_right = true,
@@ -67,5 +67,5 @@ namespace pluto::graph {
     };
 
     extern auto verify(tensor* root, graph_eval_order order) -> bool;
-    extern auto eval(tensor* root, graph_eval_order order) -> std::pair<tensor*, bool>;
+    extern auto eval(tensor* root, graph_eval_order order) -> tensor*;
 }

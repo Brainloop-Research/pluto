@@ -44,54 +44,55 @@ namespace pluto::graph {
     };
 
     constexpr std::array<eval_op, static_cast<std::size_t>(opcode::len_)> eval_op_lut {
-        +[]([[maybe_unused]] const blas::compute_ctx& ctx, tensor*& r, [[maybe_unused]] const std::span<tensor*> args) -> bool { // nop
-            return r;
+        +[]([[maybe_unused]] const blas::compute_ctx& ctx, [[maybe_unused]] tensor*& r, [[maybe_unused]] const std::span<tensor*> args) -> void { // nop
+
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // softmax
-            return (r = blas::softmax(ctx, *args[0]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // softmax
+            r = blas::softmax(ctx, *args[0]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // sigmoid
-            return (r = blas::sigmoid(ctx, *args[0]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // sigmoid
+            r = blas::sigmoid(ctx, *args[0]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // tanh
-            return (r = blas::tanh(ctx, *args[0]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // tanh
+            r = blas::tanh(ctx, *args[0]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // relu
-            return (r = blas::relu(ctx, *args[0]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // relu
+            r = blas::relu(ctx, *args[0]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // gelu
-            return (r = blas::gelu(ctx, *args[0]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // gelu
+            r = blas::gelu(ctx, *args[0]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // silu
-            return (r = blas::silu(ctx, *args[0]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // silu
+            r = blas::silu(ctx, *args[0]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // add
-            return (r = blas::add(ctx, *args[0], *args[1]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // add
+            r = blas::add(ctx, *args[0], *args[1]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // sub
-            return (r = blas::sub(ctx, *args[0], *args[1]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // sub
+            r = blas::sub(ctx, *args[0], *args[1]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // mul
-            return (r = blas::mul(ctx, *args[0], *args[1]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // mul
+            r = blas::mul(ctx, *args[0], *args[1]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // div
-            return (r = blas::div(ctx, *args[0], *args[1]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // div
+            r = blas::div(ctx, *args[0], *args[1]);
         },
-        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> bool { // matmul
-            return (r = blas::mul(ctx, *args[0], *args[1]));
+        +[](const blas::compute_ctx& ctx, tensor*& r, const std::span<tensor*> args) -> void { // matmul
+            r = blas::matmul(ctx, *args[0], *args[1]);
         }
     };
 
     template <const graph_eval_order Ord, typename F, typename... Args>
     requires std::is_invocable_r_v<bool, F, tensor*, Args...>
-    [[nodiscard]] static constexpr auto graph_visit(tensor* const root, F&& f, Args&&... arr)
-    noexcept(std::is_nothrow_invocable_r_v<bool, F, tensor*, Args...>) -> bool {
-        if (!root) [[unlikely]] return false;
+    static constexpr auto graph_visit(tensor* const root, F&& f, Args&&... arr) noexcept(std::is_nothrow_invocable_v<F, tensor*, Args...>) -> bool {
+        if (!root) [[unlikely]]
+            return false;
         const std::span<tensor*> args {root->get_args()};
         for (std::size_t i {}, k; i < args.size(); ++i) {
             if constexpr (Ord == graph_eval_order::left_to_right) { k = i; }
             else { k = args.size()-i-1; }
-            if (!graph_visit<Ord>(args[k], std::forward<F>(f), std::forward<Args>(arr)...)) [[unlikely]] return false;
+            if (!graph_visit<Ord>(args[k], std::forward<F>(f), std::forward<Args>(arr)...)) [[unlikely]]
+                return false;
         }
         return std::invoke(std::forward<F>(f), root, std::forward<Args>(arr)...);
     }
@@ -101,18 +102,24 @@ namespace pluto::graph {
         const auto verifyer {[&ctx](tensor* const t) -> bool {
             return (*verify_op_lut[static_cast<std::size_t>(t->get_op_code())])(ctx, t->get_args());
         }};
-        if (order == graph_eval_order::left_to_right) return graph_visit<graph_eval_order::left_to_right>(root, verifyer);
-        else return graph_visit<graph_eval_order::right_to_left>(root, verifyer);
+        return order == graph_eval_order::left_to_right
+            ? graph_visit<graph_eval_order::left_to_right>(root, verifyer)
+            : graph_visit<graph_eval_order::right_to_left>(root, verifyer);
     }
 
-    auto eval(tensor* const root, const graph_eval_order order) -> std::pair<tensor*, bool> {
+    auto eval(tensor* const root, const graph_eval_order order) -> tensor* {
         blas::compute_ctx ctx {};
         const auto evaluator {[&ctx](tensor* const t, tensor*& r) -> bool {
-            return (*eval_op_lut[static_cast<std::size_t>(t->get_op_code())])(ctx, r, t->get_args());
+            (*eval_op_lut[static_cast<std::size_t>(t->get_op_code())])(ctx, r, t->get_args());
+            return true;
         }};
-        std::pair<tensor*, bool> r {};
-        if (order == graph_eval_order::left_to_right) r.second = graph_visit<graph_eval_order::left_to_right>(root, evaluator, r.first);
-        else r.second = graph_visit<graph_eval_order::right_to_left>(root, evaluator, r.first);
+        tensor* r {};
+        const bool result {
+            order == graph_eval_order::left_to_right
+                ? graph_visit<graph_eval_order::left_to_right>(root, evaluator, r)
+                : graph_visit<graph_eval_order::right_to_left>(root, evaluator, r)
+        };
+        assert(result && r);
         return r;
     }
 }

@@ -90,14 +90,11 @@ namespace pluto {
     }
 
     auto tensor::is_matmul_compatible(const tensor* const other) const noexcept -> bool {
-        return (m_shape[0] == other->m_shape[0])
-           && (other->m_shape[2] % m_shape[2] == 0)
-           && (other->m_shape[3] % m_shape[3] == 0);
+        return m_shape[0] == other->m_shape[1];
     }
 
     auto tensor::fill(const float val) noexcept -> void {
-        if (val == 0.0f) std::memset(m_buf.data(), 0, m_buf.size()*sizeof(float));
-        else std::fill(m_buf.begin(), m_buf.end(), val);
+        std::fill(m_buf.begin(), m_buf.end(), val);
     }
 
     auto tensor::populate(const std::span<const float> values) noexcept -> void {
