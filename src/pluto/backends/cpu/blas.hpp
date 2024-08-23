@@ -3,7 +3,10 @@
 #pragma once
 
 #include "../../tensor.hpp"
-#include "../../f16.hpp"
+
+namespace pluto {
+    struct f16;
+}
 
 namespace pluto::backends::cpu::blas {
 
