@@ -636,43 +636,43 @@ namespace pluto::backends::cpu::blas {
         }
     }
 
-    auto softmax(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto t_softmax(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, v_softmax<float>);
         return r;
     }
 
-    auto sigmoid(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto t_sigmoid(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, v_sigmoid<float>);
         return r;
     }
 
-    auto tanh(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto t_tanh(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, v_tanh<float>);
         return r;
     }
 
-    auto relu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto t_relu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, v_relu<float>);
         return r;
     }
 
-    auto gelu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto t_gelu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, v_gelu<float>);
         return r;
     }
 
-    auto silu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto t_silu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, v_silu<float>);
         return r;
     }
 
-    auto add(
+    auto t_add(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y
@@ -682,7 +682,7 @@ namespace pluto::backends::cpu::blas {
         return r;
     }
 
-    auto sub(
+    auto t_sub(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y
@@ -692,7 +692,7 @@ namespace pluto::backends::cpu::blas {
         return r;
     }
 
-    auto mul(
+    auto t_mul(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y
@@ -702,7 +702,7 @@ namespace pluto::backends::cpu::blas {
         return r;
     }
 
-    auto div(
+    auto t_div(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y
@@ -712,7 +712,7 @@ namespace pluto::backends::cpu::blas {
         return r;
     }
 
-    auto matmul(
+    auto t_matmul(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y

@@ -276,7 +276,7 @@ GTEST_TEST(blas, tensor_softmax) {
     float r1 {};
     v_softmax(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {softmax(compute_ctx{}, *t1)};
+    auto* r {t_softmax(compute_ctx{}, *t1)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -290,7 +290,7 @@ GTEST_TEST(blas, tensor_sigmoid) {
     float r1 {};
     v_sigmoid(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {sigmoid(compute_ctx{}, *t1)};
+    auto* r {t_sigmoid(compute_ctx{}, *t1)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -304,7 +304,7 @@ GTEST_TEST(blas, tensor_tanh) {
     float r1 {};
     v_tanh(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {tanh(compute_ctx{}, *t1)};
+    auto* r {t_tanh(compute_ctx{}, *t1)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -318,7 +318,7 @@ GTEST_TEST(blas, tensor_relu) {
     float r1 {};
     v_relu(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {relu(compute_ctx{}, *t1)};
+    auto* r {t_relu(compute_ctx{}, *t1)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -332,7 +332,7 @@ GTEST_TEST(blas, tensor_gelu) {
     float r1 {};
     v_gelu(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {gelu(compute_ctx{}, *t1)};
+    auto* r {t_gelu(compute_ctx{}, *t1)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -346,7 +346,7 @@ GTEST_TEST(blas, tensor_silu) {
     float r1 {};
     v_silu(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {silu(compute_ctx{}, *t1)};
+    auto* r {t_silu(compute_ctx{}, *t1)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -360,7 +360,7 @@ GTEST_TEST(blas, tensor_add_f32) {
     auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {add(compute_ctx{}, *t1, *t2)};
+    auto* r {t_add(compute_ctx{}, *t1, *t2)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 + x2);
@@ -374,7 +374,7 @@ GTEST_TEST(blas, tensor_sub_f32) {
     auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {sub(compute_ctx{}, *t1, *t2)};
+    auto* r {t_sub(compute_ctx{}, *t1, *t2)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 - x2);
@@ -388,7 +388,7 @@ GTEST_TEST(blas, tensor_mul_f32) {
     auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {mul(compute_ctx{}, *t1, *t2)};
+    auto* r {t_mul(compute_ctx{}, *t1, *t2)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 * x2);
@@ -402,7 +402,7 @@ GTEST_TEST(blas, tensor_div_f32) {
     auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {div(compute_ctx{}, *t1, *t2)};
+    auto* r {t_div(compute_ctx{}, *t1, *t2)};
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 / x2);
@@ -439,7 +439,7 @@ GTEST_TEST(blas, tensor_sgemm_f32) {
     auto* t2 {tensor::create(&ctx, {4, 4})};
     t1->populate(matrix_a);
     t2->populate(matrix_b);
-    auto* r {matmul(compute_ctx{}, *t1, *t2)};
+    auto* r {t_matmul(compute_ctx{}, *t1, *t2)};
     ASSERT_EQ(r->buf().size(), matrix_c.size());
     for (std::size_t i {}; i < matrix_c.size(); ++i) {
         ASSERT_FLOAT_EQ(r->buf()[i], matrix_c[i]);

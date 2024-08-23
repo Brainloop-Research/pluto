@@ -182,5 +182,5 @@ namespace pluto::backends::cpu::blas {
     [[nodiscard]] extern auto t_sub(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
     [[nodiscard]] extern auto t_mul(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
     [[nodiscard]] extern auto t_div(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_dot(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
+    [[nodiscard]] extern auto t_matmul(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
 }
