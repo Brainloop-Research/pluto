@@ -4,7 +4,7 @@
 
 #include "../../backend.hpp"
 
-namespace pluto::backends {
+namespace pluto::backends::cpu {
     class cpu_backend : public backend_interface {
     public:
         cpu_backend();

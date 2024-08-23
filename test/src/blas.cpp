@@ -3,10 +3,12 @@
 #include <numeric>
 
 #include "prelude.hpp"
+#include "pluto/backends/cpu/blas.hpp"
+
 #include <pluto/backends/cpu/blas_impl.inl>
 
 using namespace pluto;
-using namespace blas;
+using namespace backends::cpu::blas;
 
 static constexpr std::array<f16, 16> f16_vec {
     f16::e(),
@@ -87,7 +89,7 @@ GTEST_TEST(blas, cvt_f32_to_f16) {
 
 GTEST_TEST(blas, cvt_f16_to_f32_vec) {
     std::array<float, 16> f32_out {};
-    f16::cvt_f16_to_f32_vec(f16_vec.size(), f32_out.data(), f16_vec.data());
+    v_cvt_f16_to_f32(f16_vec.size(), f32_out.data(), f16_vec.data());
     for (std::size_t i {0}; i < f32_vec.size(); ++i) {
         ASSERT_TRUE(std::abs(f32_out[i] - f32_vec[i])
             < static_cast<float>(f16::eps())); // |ξ1 - ξ2| < ε
@@ -96,7 +98,7 @@ GTEST_TEST(blas, cvt_f16_to_f32_vec) {
 
 GTEST_TEST(blas, cvt_f32_to_f16_vec) {
     std::array<f16, 16> f16_out {};
-    f16::cvt_f32_to_f16_vec(f32_vec.size(), f16_out.data(), f32_vec.data());
+    v_cvt_f32_to_f16(f32_vec.size(), f16_out.data(), f32_vec.data());
     for (std::size_t i {0}; i < f32_vec.size(); ++i) {
         ASSERT_TRUE(std::abs(static_cast<float>(f16{f32_vec[i]})
              - static_cast<float>(f16_out[i]))

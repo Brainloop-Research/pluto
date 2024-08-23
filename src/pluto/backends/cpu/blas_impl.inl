@@ -20,165 +20,56 @@
 #   define PT_X86_X64_USE_HADD // Prefer horizontal sum with haddps/vhaddps over manual sum
 #endif
 
-namespace pluto::blas {
-    // IEEE 754 754-2008 binary 16 (half precision float)
-    struct f16 final {
-        std::uint16_t bits {};
-
-        constexpr f16() noexcept = default;
-        constexpr explicit f16(const int x) noexcept : bits{static_cast<std::uint16_t>(x)} {}
-        inline explicit f16(const float x) noexcept {
-            #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
-                const __fp16 f16 {static_cast<__fp16>(x)};
-                bits = std::bit_cast<std::uint16_t>(f16);
-            #elif defined(__F16C__) // Fast hardware path
-            #   ifdef _MSC_VER
-                    bits = static_cast<std::uint16_t>(_mm_extract_epi16(_mm_cvtps_ph(_mm_set_ss(x), 0), 0));
-            #   else
-                    bits = static_cast<std::uint16_t>(_cvtss_sh(x, 0));
-            #   endif
-            #else // Slow software emulated path
-                const float base {(std::abs(x) * 0x1.0p+112f) * 0x1.0p-110f};  // Normalize |x|
-                const std::uint32_t w {std::bit_cast<std::uint32_t>(x)};
-                const std::uint32_t shl1_w {w+w};
-                const std::uint32_t sign {w & 0x80000000u};
-                const std::uint32_t bias {0x07800000u+(std::max(0x71000000u, shl1_w&0xff000000u)>>1)}; // Extract bias
-                const std::uint32_t rbits {std::bit_cast<std::uint32_t>(base + std::bit_cast<float>(bias))}; // Extract bits
-                const std::uint32_t exp_bits {(rbits>>13) & 0x00007c00u}; // Extract exponent bits
-                const std::uint32_t mant_bits {rbits & 0x00000fffu}; // Extract mantissa bits
-                const std::uint32_t nonsign {exp_bits + mant_bits}; // Combine exponent and mantissa bits
-                bits = (sign>>16)|(shl1_w > 0xff000000 ? 0x7e00 : nonsign); // Pack full bit pattern
-            #endif
-        }
-
-        inline explicit operator float() const noexcept {
-            #if defined(__ARM_NEON) && !defined(_MSC_VER) // Fast hardware path
-                return static_cast<float>(std::bit_cast<__fp16>(bits));
-            #elif defined(__F16C__) // Fast hardware path
-            #   ifdef _MSC_VER
-                    return static_cast<float>(_mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(bits))));
-            #   else
-                    return static_cast<float>(_cvtsh_ss(bits));
-            #   endif
-            #else // Slow software emulated path
-                const std::uint32_t w {static_cast<std::uint32_t>(bits)<<16};
-                const std::uint32_t sign {w & 0x80000000u};
-                const std::uint32_t two_w {w+w};
-                const std::uint32_t exp_offset {0xe0u<<23}; // Exponent offset for normalization
-                const float norm_x {std::bit_cast<float>((two_w>>4) + exp_offset) * 0x1.0p-112f}; // Normalize the result
-                const float denorm_x {std::bit_cast<float>((two_w>>17) | (126u<<23)) - 0.5f}; // Adjust exponent for denormalized values
-                const std::uint32_t denorm_cutoff {1u<<27}; // Threshold for denormalized values
-                const std::uint32_t result = sign // Combine sign and mantissa
-                    | (two_w < denorm_cutoff
-                    ? std::bit_cast<std::uint32_t>(denorm_x) // Use denormalized value if below cutoff
-                    : std::bit_cast<std::uint32_t>(norm_x)); // Else use normalized value
-                return std::bit_cast<float>(result);
-            #endif
-        }
-
-        static inline auto cvt_f16_to_f32_vec(const dim n, float* const o, const f16* const x) noexcept -> void {
-            dim i {};
-            #ifdef __ARM_NEON
-                for (; i+7 < n; i += 8) {
-                    const float16x8_t v0 {vld1q_f16(reinterpret_cast<const float16_t*>(x+i))};
-                    const float32x4_t f0 {vcvt_f32_f16(vget_low_f16(v0))};
-                    const float32x4_t f1 {vcvt_f32_f16(vget_high_f16(v0))};
-                    vst1q_f32(o+i, f0);
-                    vst1q_f32(o+i+4, f1);
-                }
-                for (; i+3 < n; i += 4) {
-                    float16x4_t v {vld1_f16(reinterpret_cast<const float16_t*>(x+i))};
-                    float32x4_t f {vcvt_f32_f16(v)};
-                    vst1q_f32(o+i, f);
-                }
-            #endif
-            for (; i < n; ++i) {
-                o[i] = static_cast<float>(x[i]);
+namespace pluto::backends::cpu::blas {
+    auto v_cvt_f16_to_f32(const dim n, float* const o, const f16* const x) noexcept -> void {
+        dim i {};
+        #ifdef __ARM_NEON
+            for (; i+7 < n; i += 8) {
+                const float16x8_t v0 {vld1q_f16(reinterpret_cast<const float16_t*>(x+i))};
+                const float32x4_t f0 {vcvt_f32_f16(vget_low_f16(v0))};
+                const float32x4_t f1 {vcvt_f32_f16(vget_high_f16(v0))};
+                vst1q_f32(o+i, f0);
+                vst1q_f32(o+i+4, f1);
             }
-        }
-
-        static inline auto cvt_f32_to_f16_vec(const dim n, f16* const o, const float* const x) noexcept -> void {
-            dim i {};
-            #ifdef __F16C__
-                for (; i+7 < n; i += 8) {
-                    _mm_storeu_si128(
-                        reinterpret_cast<__m128i*>(o+i),
-                        _mm256_cvtps_ph(
-                            _mm256_loadu_ps(x+i),
-                            _MM_FROUND_TO_NEAREST_INT
-                        )
-                    );
-                }
-                for(; i+3 < n; i += 4) {
-                    _mm_storel_epi64(
-                        reinterpret_cast<__m128i*>(o+i),
-                        _mm_cvtps_ph(
-                            _mm_loadu_ps(x+i),
-                            _MM_FROUND_TO_NEAREST_INT
-                        )
-                    );
-                }
-            #elif defined (__ARM_NEON)
-                for (; i+7 < n; i += 8) {
-                    const float32x4_t v0 {vld1q_f32(x+i)};
-                    const float32x4_t v1 {vld1q_f32(x+i+4)};
-                    const float16x4_t h0 {vcvt_f16_f32(v0)};
-                    const float16x4_t h1 {vcvt_f16_f32(v1)};
-                    vst1_f16(reinterpret_cast<float16_t*>(o+i), h0);
-                    vst1_f16(reinterpret_cast<float16_t*>(o+i+4), h1);
-                }
-                for (; i+3 < n; i += 4) {
-                    const float32x4_t v {vld1q_f32(x+i)};
-                    const float16x4_t h {vcvt_f16_f32(v)};
-                    vst1_f16(reinterpret_cast<float16_t*>(o+i), h);
-                }
-            #endif
-            for (; i < n; ++i) {
-                o[i] = f16{x[i]};
+            for (; i+3 < n; i += 4) {
+                float16x4_t v {vld1_f16(reinterpret_cast<const float16_t*>(x+i))};
+                float32x4_t f {vcvt_f32_f16(v)};
+                vst1q_f32(o+i, f);
             }
+        #endif
+        for (; i < n; ++i) {
+            o[i] = static_cast<float>(x[i]);
         }
-        [[nodiscard]] static constexpr auto e() noexcept -> f16 { return f16{0x4170}; }
-        [[nodiscard]] static constexpr auto eps() noexcept -> f16 { return f16{0x1400}; }
-        [[nodiscard]] static constexpr auto inf() noexcept -> f16 { return f16{0x7c00}; }
-        [[nodiscard]] static constexpr auto ln_10() noexcept -> f16 { return f16{0x409b}; }
-        [[nodiscard]] static constexpr auto ln_2() noexcept -> f16 { return f16{0x398c}; }
-        [[nodiscard]] static constexpr auto log10_2() noexcept -> f16 { return f16{0x34d1}; }
-        [[nodiscard]] static constexpr auto log10_e() noexcept -> f16 { return f16{0x36f3}; }
-        [[nodiscard]] static constexpr auto log2_10() noexcept -> f16 { return f16{0x42a5}; }
-        [[nodiscard]] static constexpr auto log2_e() noexcept -> f16 { return f16{0x3dc5}; }
-        [[nodiscard]] static constexpr auto max() noexcept -> f16 { return f16{0x7bff}; }
-        [[nodiscard]] static constexpr auto max_subnormal() noexcept -> f16 { return f16{0x03ff}; }
-        [[nodiscard]] static constexpr auto min() noexcept -> f16 { return f16{0xfbff}; }
-        [[nodiscard]] static constexpr auto min_pos() noexcept -> f16 { return f16{0x0400}; }
-        [[nodiscard]] static constexpr auto min_pos_subnormal() noexcept -> f16 { return f16{0x0001}; }
-        [[nodiscard]] static constexpr auto nan() noexcept -> f16 { return f16{0x7e00}; }
-        [[nodiscard]] static constexpr auto neg_inf() noexcept -> f16 { return f16{0xfc00}; }
-        [[nodiscard]] static constexpr auto neg_one() noexcept -> f16 { return f16{0xbc00}; }
-        [[nodiscard]] static constexpr auto neg_zero() noexcept -> f16 { return f16{0x8000}; }
-        [[nodiscard]] static constexpr auto one() noexcept -> f16 { return f16{0x3c00}; }
-        [[nodiscard]] static constexpr auto pi() noexcept -> f16 { return f16{0x4248}; }
-        [[nodiscard]] static constexpr auto sqrt_2() noexcept -> f16 { return f16{0x3da8}; }
-        [[nodiscard]] static constexpr auto zero() noexcept -> f16 { return f16{0x0000}; }
+    }
 
-        inline auto operator ==(const f16 rhs) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 {static_cast<float>(* this)};
-            const auto xi2 {static_cast<float>(rhs)};
-            const auto epsi {static_cast<float>(eps())};
-            return std::abs(xi1 - xi2) < epsi;
+    auto v_cvt_f32_to_f16(const dim n, f16* const o, const float* const x) noexcept -> void {
+        dim i {};
+        #ifdef __F16C__
+            for (; i+7 < n; i += 8) {
+                _mm_storeu_si128(reinterpret_cast<__m128i*>(o+i), _mm256_cvtps_ph( _mm256_loadu_ps(x+i), _MM_FROUND_TO_NEAREST_INT));
+            }
+            for(; i+3 < n; i += 4) {
+                _mm_storel_epi64(reinterpret_cast<__m128i*>(o+i),_mm_cvtps_ph(_mm_loadu_ps(x+i),_MM_FROUND_TO_NEAREST_INT));
+            }
+        #elif defined (__ARM_NEON)
+            for (; i+7 < n; i += 8) {
+                const float32x4_t v0 {vld1q_f32(x+i)};
+                const float32x4_t v1 {vld1q_f32(x+i+4)};
+                const float16x4_t h0 {vcvt_f16_f32(v0)};
+                const float16x4_t h1 {vcvt_f16_f32(v1)};
+                vst1_f16(reinterpret_cast<float16_t*>(o+i), h0);
+                vst1_f16(reinterpret_cast<float16_t*>(o+i+4), h1);
+            }
+            for (; i+3 < n; i += 4) {
+                const float32x4_t v {vld1q_f32(x+i)};
+                const float16x4_t h {vcvt_f16_f32(v)};
+                vst1_f16(reinterpret_cast<float16_t*>(o+i), h);
+            }
+        #endif
+        for (; i < n; ++i) {
+            o[i] = f16{x[i]};
         }
-        inline auto operator !=(const f16 rhs) const noexcept -> bool {
-            return !(*this == rhs);
-        }
-        inline auto operator ==(const float xi2) const noexcept -> bool { // Epsilon comparison: |ξ1 - ξ2| < ε
-            const auto xi1 {static_cast<float>(* this)};
-            const auto epsi {static_cast<float>(eps())};
-            return std::abs(xi1 - xi2) < epsi;
-        }
-        inline auto operator !=(const float rhs) const noexcept -> bool {
-            return !(*this == rhs);
-        }
-    };
-    static_assert(sizeof(f16) == 2);
+    }
 
     // Google brain float 16 (bfloat16) format
     struct bf16 final {
@@ -312,12 +203,6 @@ namespace pluto::blas {
         }
     };
     static_assert(sizeof(bf16) == 2);
-
-    template <typename T, typename... Ts>
-    concept is_any = std::disjunction_v<std::is_same<T, Ts>...>;
-
-    template <typename T>
-    concept is_dtype = is_any<T, float>;
 
     // Vector BLAS
     namespace detail::vblas {
@@ -701,43 +586,43 @@ namespace pluto::blas {
         }
     }
 
-    inline auto softmax(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto softmax(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::softmax<float>);
         return r;
     }
 
-    inline auto sigmoid(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto sigmoid(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::sigmoid<float>);
         return r;
     }
 
-    inline auto tanh(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto tanh(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::tanh<float>);
         return r;
     }
 
-    inline auto relu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto relu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::relu<float>);
         return r;
     }
 
-    inline auto gelu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto gelu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::gelu<float>);
         return r;
     }
 
-    inline auto silu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
+    auto silu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
         tensor* const r {x.isomorphic_clone()};
         detail::gen_unary_op<float>(ctx, *r, x, detail::vblas::silu<float>);
         return r;
     }
 
-    inline auto add(
+    auto add(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y
@@ -747,7 +632,7 @@ namespace pluto::blas {
         return r;
     }
 
-    inline auto sub(
+    auto sub(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y
@@ -757,7 +642,7 @@ namespace pluto::blas {
         return r;
     }
 
-    inline auto mul(
+    auto mul(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y
@@ -767,7 +652,7 @@ namespace pluto::blas {
         return r;
     }
 
-    inline auto div(
+    auto div(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y
@@ -777,7 +662,7 @@ namespace pluto::blas {
         return r;
     }
 
-    inline auto matmul(
+    auto matmul(
         const compute_ctx& ctx,
         const tensor& x,
         const tensor& y

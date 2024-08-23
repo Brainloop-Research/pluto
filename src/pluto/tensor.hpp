@@ -14,6 +14,12 @@ namespace pluto {
     static constexpr dim max_dims {4};
     using multi_dim = std::array<dim, max_dims>;
 
+    template <typename T, typename... Ts>
+    concept is_any_of = std::disjunction_v<std::is_same<T, Ts>...>;
+
+    template <typename T>
+    concept is_dtype = is_any_of<T, float>;
+
     class tensor final {
     public:
         static constexpr dim buf_align {alignof(float)};

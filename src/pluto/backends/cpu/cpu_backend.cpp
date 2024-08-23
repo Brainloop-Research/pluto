@@ -2,7 +2,7 @@
 
 #include "cpu_backend.hpp"
 
-namespace pluto::backends {
+namespace pluto::backends::cpu {
     cpu_backend::cpu_backend() : backend_interface {"cpu"} {
 
     }
