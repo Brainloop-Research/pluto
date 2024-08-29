@@ -11,16 +11,16 @@ namespace pluto::backends::cpu {
         ~cpu_backend() override = default;
 
     protected:
-        [[nodiscard]] virtual auto eval_softmax (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_sigmoid (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_tanh    (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_relu    (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_gelu    (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_silu    (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_add     (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_sub     (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_mul     (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_div     (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
-        [[nodiscard]] virtual auto eval_matmul  (const compute_ctx& ctx, std::span<const tensor*> args) const noexcept -> tensor* override;
+        virtual auto eval_softmax (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_sigmoid (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_tanh    (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_relu    (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_gelu    (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_silu    (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_add     (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_sub     (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_mul     (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_div     (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
+        virtual auto eval_matmul  (const compute_ctx& ctx, tensor* node) const noexcept -> void override;
     };
 }

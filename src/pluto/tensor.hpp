@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <numeric>
+#include <iosfwd>
 #include <span>
 
 namespace pluto {
@@ -50,10 +51,14 @@ namespace pluto {
         [[nodiscard]] auto is_higher_order3d() const noexcept -> bool;
         [[nodiscard]] auto is_shape_eq(const tensor* other) const noexcept -> bool;
         [[nodiscard]] auto is_matmul_compatible(const tensor* other) const noexcept -> bool;
+
         auto fill(float val) noexcept -> void;
         auto populate(std::span<const float> values) noexcept -> void;
-        [[nodiscard]] auto get_args() const noexcept -> std::span<const tensor*>;
+        auto fill_random(float min = -1.0f, float max = 1.0f) noexcept -> void;
+        [[nodiscard]] auto get_args() const noexcept -> std::span<tensor* const>;
         [[nodiscard]] auto get_op_code() const noexcept -> opcode;
+        [[nodiscard]] auto is_leaf_node() const noexcept -> bool;
+        auto push_arg(tensor* t) -> void;
 
         template <typename F> requires std::is_invocable_r_v<float, F, dim>
         auto fill_fn(F&& f) noexcept(std::is_nothrow_invocable_r_v<float, F, dim>) -> void {
@@ -63,14 +68,25 @@ namespace pluto {
             }
         }
 
+        template <typename... Args> requires (sizeof...(Args) > 0)
+        auto set_op(const opcode op, Args&&... args) noexcept -> void {
+            m_op = op;
+            for (auto&& arg : std::initializer_list<std::common_type_t<Args...>>{args...})
+                push_arg(arg);
+        }
+
     private:
         context* m_ctx {}; // Context host
         std::span<float> m_buf {}; // Pointer to the data
         std::array<dim, max_dims> m_shape {}; // Cardinality of each dimension
         std::array<dim, max_dims> m_strides {}; // Byte strides for each dimension
         dim m_rank {}; // Number of dimensions
-        std::array<const tensor*, max_args> m_args {}; // Arguments for the operation
+        std::array<tensor*, max_args> m_args {}; // Arguments for the operation
         std::size_t m_num_args {}; // Number of arguments
         opcode m_op {}; // Operation code
+
+        friend auto operator << (std::ostream&, const tensor&) -> std::ostream&;
     };
+
+    auto operator << (std::ostream& o, const tensor& self) -> std::ostream&;
 }

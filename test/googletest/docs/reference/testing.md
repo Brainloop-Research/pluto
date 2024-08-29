@@ -824,7 +824,7 @@ running, or `NULL` if no test is running.
 
 `int UnitTest::random_seed() const`
 
-Returns the random seed used at the start of the current test run.
+Returns the fill_random seed used at the start of the current test run.
 
 ##### successful_test_suite_count {#UnitTest::successful_test_suite_count}
 

@@ -3,7 +3,9 @@
 #include "tensor.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <cassert>
+#include <random>
 #include <numeric>
 
 namespace pluto {
@@ -102,7 +104,39 @@ namespace pluto {
         std::copy(values.begin(), values.end(), m_buf.begin());
     }
 
-    auto tensor::get_args() const noexcept -> std::span<const tensor*> { return {const_cast<const tensor**>(m_args.data()), m_num_args}; }
+    auto tensor::get_args() const noexcept -> std::span<tensor* const> { return {m_args.data(), m_num_args}; }
 
     auto tensor::get_op_code() const noexcept -> opcode { return m_op; }
+
+    auto tensor::is_leaf_node() const noexcept -> bool { return m_op == opcode::nop; }
+
+    auto tensor::push_arg(tensor* const t) -> void {
+        assert(m_num_args < max_args);
+        m_args[m_num_args++] = t;
+    }
+
+    static thread_local std::random_device rnd_dvc {};
+    static thread_local std::mt19937_64 rnd_gen {};
+
+    auto tensor::fill_random(const float min, const float max) noexcept -> void {
+        std::uniform_real_distribution<float> dist {min, max};
+        fill_fn([&dist](dim) noexcept -> float  {
+            return dist(rnd_gen);
+        });
+    }
+
+    auto operator << (std::ostream& o, const tensor& self) -> std::ostream& {
+        o << "[\n";
+        for (dim i3 {}; i3 < self.m_shape[2]; ++i3) {
+            for (dim i2 {}; i2 < self.m_shape[1]; ++i2) {
+                o << '\t';
+                for (dim i1 {}; i1 < self.m_shape[0]; ++i1) {
+                    o << self.m_buf[i3*self.m_shape[1]*self.m_shape[0] + i2*self.m_shape[0] + i1] << ' ';
+                }
+                o << '\n';
+            }
+        }
+        o << "]\n";
+        return o;
+    }
 }

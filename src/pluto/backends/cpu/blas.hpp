@@ -171,16 +171,16 @@ namespace pluto::backends::cpu::blas {
 
     // ---- Tensor Operations ----
 
-    [[nodiscard]] extern auto t_softmax(const compute_ctx& ctx, const tensor& x) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_sigmoid(const compute_ctx& ctx, const tensor& x) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_tanh(const compute_ctx& ctx, const tensor& x) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_relu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_gelu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_silu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor*;
+    extern auto t_softmax(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void;
+    extern auto t_sigmoid(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void;
+    extern auto t_tanh(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void;
+    extern auto t_relu(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void;
+    extern auto t_gelu(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void;
+    extern auto t_silu(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void;
 
-    [[nodiscard]] extern auto t_add(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_sub(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_mul(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_div(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
-    [[nodiscard]] extern auto t_matmul(const compute_ctx& ctx, const tensor& x, const tensor& y) noexcept -> tensor*;
+    extern auto t_add(const compute_ctx& ctx, tensor& r, const tensor& x, const tensor& y) noexcept -> void;
+    extern auto t_sub(const compute_ctx& ctx, tensor& r, const tensor& x, const tensor& y) noexcept -> void;
+    extern auto t_mul(const compute_ctx& ctx, tensor& r, const tensor& x, const tensor& y) noexcept -> void;
+    extern auto t_div(const compute_ctx& ctx, tensor& r, const tensor& x, const tensor& y) noexcept -> void;
+    extern auto t_matmul(const compute_ctx& ctx, tensor& r, const tensor& x, const tensor& y) noexcept -> void;
 }

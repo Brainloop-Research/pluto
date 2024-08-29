@@ -636,90 +636,72 @@ namespace pluto::backends::cpu::blas {
         }
     }
 
-    auto t_softmax(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_unary_op<float>(ctx, *r, x, v_softmax<float>);
-        return r;
+    auto t_softmax(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void {
+        detail::gen_unary_op<float>(ctx, r, x, v_softmax<float>);
     }
 
-    auto t_sigmoid(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_unary_op<float>(ctx, *r, x, v_sigmoid<float>);
-        return r;
+    auto t_sigmoid(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void {
+        detail::gen_unary_op<float>(ctx, r, x, v_sigmoid<float>);
     }
 
-    auto t_tanh(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_unary_op<float>(ctx, *r, x, v_tanh<float>);
-        return r;
+    auto t_tanh(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void {
+        detail::gen_unary_op<float>(ctx, r, x, v_tanh<float>);
     }
 
-    auto t_relu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_unary_op<float>(ctx, *r, x, v_relu<float>);
-        return r;
+    auto t_relu(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void {
+        detail::gen_unary_op<float>(ctx, r, x, v_relu<float>);
     }
 
-    auto t_gelu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_unary_op<float>(ctx, *r, x, v_gelu<float>);
-        return r;
+    auto t_gelu(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void {
+        detail::gen_unary_op<float>(ctx, r, x, v_gelu<float>);
     }
 
-    auto t_silu(const compute_ctx& ctx, const tensor& x) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_unary_op<float>(ctx, *r, x, v_silu<float>);
-        return r;
+    auto t_silu(const compute_ctx& ctx, tensor& r, const tensor& x) noexcept -> void {
+        detail::gen_unary_op<float>(ctx, r, x, v_silu<float>);
     }
 
     auto t_add(
         const compute_ctx& ctx,
+        tensor& r,
         const tensor& x,
         const tensor& y
-    ) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_binary_op<float>(ctx, *r, x, y, v_add<float>, std::plus<float>{});
-        return r;
+    ) noexcept -> void {
+        detail::gen_binary_op<float>(ctx, r, x, y, v_add<float>, std::plus<float>{});
     }
 
     auto t_sub(
         const compute_ctx& ctx,
+        tensor& r,
         const tensor& x,
         const tensor& y
-    ) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_binary_op<float>(ctx, *r, x, y, v_sub<float>, std::minus<float>{});
-        return r;
+    ) noexcept -> void {
+        detail::gen_binary_op<float>(ctx, r, x, y, v_sub<float>, std::minus<float>{});
     }
 
     auto t_mul(
         const compute_ctx& ctx,
+        tensor& r,
         const tensor& x,
         const tensor& y
-    ) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_binary_op<float>(ctx, *r, x, y, v_mul<float>, std::multiplies<float>{});
-        return r;
+    ) noexcept -> void {
+        detail::gen_binary_op<float>(ctx, r, x, y, v_mul<float>, std::multiplies<float>{});
     }
 
     auto t_div(
         const compute_ctx& ctx,
+        tensor& r,
         const tensor& x,
         const tensor& y
-    ) noexcept -> tensor* {
-        tensor* const r {x.isomorphic_clone()};
-        detail::gen_binary_op<float>(ctx, *r, x, y, v_div<float>, std::divides<float>{});
-        return r;
+    ) noexcept -> void {
+        detail::gen_binary_op<float>(ctx, r, x, y, v_div<float>, std::divides<float>{});
     }
 
     auto t_matmul(
         const compute_ctx& ctx,
+        tensor& r,
         const tensor& x,
         const tensor& y
-    ) noexcept -> tensor* {
-        const std::array<dim, max_dims> shape {x.shape()[1], y.shape()[1], y.shape()[2], y.shape()[3]};
-        tensor* const r {tensor::create(x.ctx(), shape)};
-        detail::gen_gemm<float>(ctx, *r, x, y);
-        return r;
+    ) noexcept -> void {
+        detail::gen_gemm<float>(ctx, r, x, y);
     }
 }

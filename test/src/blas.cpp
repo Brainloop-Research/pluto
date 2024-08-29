@@ -276,7 +276,8 @@ GTEST_TEST(blas, tensor_softmax) {
     float r1 {};
     v_softmax(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t_softmax(compute_ctx{}, *t1)};
+    auto* r {t1->isomorphic_clone()};
+    t_softmax(compute_ctx{}, *r, *t1);
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -290,7 +291,8 @@ GTEST_TEST(blas, tensor_sigmoid) {
     float r1 {};
     v_sigmoid(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t_sigmoid(compute_ctx{}, *t1)};
+    auto* r {t1->isomorphic_clone()};
+    t_sigmoid(compute_ctx{}, *r, *t1);
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -304,8 +306,8 @@ GTEST_TEST(blas, tensor_tanh) {
     float r1 {};
     v_tanh(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t_tanh(compute_ctx{}, *t1)};
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    auto* r {t1->isomorphic_clone()};
+    t_tanh(compute_ctx{}, *r, *t1);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
     }
@@ -317,9 +319,8 @@ GTEST_TEST(blas, tensor_relu) {
     auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
     float r1 {};
     v_relu(1, &r1, &x1);
-    t1->fill(x1);
-    auto* r {t_relu(compute_ctx{}, *t1)};
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    auto* r {t1->isomorphic_clone()};
+    t_relu(compute_ctx{}, *r, *t1);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
     }
@@ -332,8 +333,8 @@ GTEST_TEST(blas, tensor_gelu) {
     float r1 {};
     v_gelu(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t_gelu(compute_ctx{}, *t1)};
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    auto* r {t1->isomorphic_clone()};
+    t_gelu(compute_ctx{}, *r, *t1);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
     }
@@ -346,8 +347,8 @@ GTEST_TEST(blas, tensor_silu) {
     float r1 {};
     v_silu(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t_silu(compute_ctx{}, *t1)};
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    auto* r {t1->isomorphic_clone()};
+    t_silu(compute_ctx{}, *r, *t1);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
     }
@@ -360,8 +361,8 @@ GTEST_TEST(blas, tensor_add_f32) {
     auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {t_add(compute_ctx{}, *t1, *t2)};
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    auto* r {t1->isomorphic_clone()};
+    t_add(compute_ctx{}, *r, *t1, *t2);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 + x2);
     }
@@ -374,7 +375,8 @@ GTEST_TEST(blas, tensor_sub_f32) {
     auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {t_sub(compute_ctx{}, *t1, *t2)};
+    auto* r {t1->isomorphic_clone()};
+    t_sub(compute_ctx{}, *r, *t1, *t2);
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 - x2);
@@ -388,7 +390,8 @@ GTEST_TEST(blas, tensor_mul_f32) {
     auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {t_mul(compute_ctx{}, *t1, *t2)};
+    auto* r {t1->isomorphic_clone()};
+    t_mul(compute_ctx{}, *r, *t1, *t2);
     ASSERT_TRUE(r->is_shape_eq(t1));
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 * x2);
@@ -402,8 +405,8 @@ GTEST_TEST(blas, tensor_div_f32) {
     auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {t_div(compute_ctx{}, *t1, *t2)};
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    auto* r {t1->isomorphic_clone()};
+    t_div(compute_ctx{}, *r, *t1, *t2);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 / x2);
     }
@@ -439,8 +442,8 @@ GTEST_TEST(blas, tensor_sgemm_f32) {
     auto* t2 {tensor::create(&ctx, {4, 4})};
     t1->populate(matrix_a);
     t2->populate(matrix_b);
-    auto* r {t_matmul(compute_ctx{}, *t1, *t2)};
-    ASSERT_EQ(r->buf().size(), matrix_c.size());
+    auto* r {t1->isomorphic_clone()};
+    t_matmul(compute_ctx{}, *r, *t1, *t2);
     for (std::size_t i {}; i < matrix_c.size(); ++i) {
         ASSERT_FLOAT_EQ(r->buf()[i], matrix_c[i]);
     }

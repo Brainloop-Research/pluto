@@ -7,6 +7,7 @@
 #include <pluto/backend.hpp>
 #include <pluto/core.hpp>
 #include <pluto/tensor.hpp>
+#include <pluto/backends/cpu/cpu_backend.hpp>
 
 using namespace pluto;
 
