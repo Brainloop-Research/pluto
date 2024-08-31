@@ -9,10 +9,13 @@ namespace pluto {
     template <typename T>
     concept is_pool_obj = requires {
         std::is_trivially_destructible_v<T>;
+        std::negation_v<std::is_void<T>>;
+        std::negation_v<std::is_const<T>>;
+        std::negation_v<std::is_volatile<T>>;
     };
 
     // Thin smart pointer wrapper for objects allocated within the linear bump pointer allocator.
-    template <typename T> requires (is_pool_obj<T> && std::negation_v<std::is_void<T>>)
+    template <typename T> requires is_pool_obj<T>
     struct pool_ref {
         constexpr pool_ref() noexcept = default;
         constexpr pool_ref(std::nullptr_t) noexcept {}
