@@ -7,6 +7,7 @@
 #include <string>
 #include <span>
 
+#include "pool_ref.hpp"
 #include "graph.hpp"
 
 namespace pluto {
@@ -30,8 +31,8 @@ namespace pluto {
         using verify_routine = auto (backend_interface::*)(const compute_ctx& ctx, const tensor* node) const -> bool;
         using eval_routine = auto (backend_interface::*)(const compute_ctx& ctx, tensor* node) const -> void;
 
-        [[nodiscard]] auto verify(const compute_ctx& ctx, tensor* root, graph_eval_order order) -> bool;
-        [[nodiscard]] auto compute(const compute_ctx& ctx, tensor* root, graph_eval_order order) -> tensor*;
+        [[nodiscard]] auto verify(const compute_ctx& ctx, pool_ref<tensor> root, graph_eval_order order) -> bool;
+        [[nodiscard]] auto compute(const compute_ctx& ctx, pool_ref<tensor> root, graph_eval_order order) -> pool_ref<tensor>;
 
     protected:
         explicit backend_interface(std::string&& name);

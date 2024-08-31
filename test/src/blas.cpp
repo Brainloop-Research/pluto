@@ -272,11 +272,11 @@ GTEST_TEST(vblas, dot_f32) {
 GTEST_TEST(blas, tensor_softmax) {
     constexpr float x1 {0.7f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
     float r1 {};
     v_softmax(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_softmax(compute_ctx{}, *r, *t1);
     ASSERT_TRUE(r->shape() == t1->shape());
     for (const float x : r->buf()) {
@@ -287,11 +287,11 @@ GTEST_TEST(blas, tensor_softmax) {
 GTEST_TEST(blas, tensor_sigmoid) {
     constexpr float x1 {0.7f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
     float r1 {};
     v_sigmoid(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_sigmoid(compute_ctx{}, *r, *t1);
     ASSERT_TRUE(r->shape() == t1->shape());
     for (const float x : r->buf()) {
@@ -302,11 +302,11 @@ GTEST_TEST(blas, tensor_sigmoid) {
 GTEST_TEST(blas, tensor_tanh) {
     constexpr float x1 {0.7f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
     float r1 {};
     v_tanh(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_tanh(compute_ctx{}, *r, *t1);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -316,10 +316,10 @@ GTEST_TEST(blas, tensor_tanh) {
 GTEST_TEST(blas, tensor_relu) {
     constexpr float x1 {0.7f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
     float r1 {};
     v_relu(1, &r1, &x1);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_relu(compute_ctx{}, *r, *t1);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -329,11 +329,11 @@ GTEST_TEST(blas, tensor_relu) {
 GTEST_TEST(blas, tensor_gelu) {
     constexpr float x1 {0.7f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
     float r1 {};
     v_gelu(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_gelu(compute_ctx{}, *r, *t1);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -343,11 +343,11 @@ GTEST_TEST(blas, tensor_gelu) {
 GTEST_TEST(blas, tensor_silu) {
     constexpr float x1 {0.7f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
     float r1 {};
     v_silu(1, &r1, &x1);
     t1->fill(x1);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_silu(compute_ctx{}, *r, *t1);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
@@ -357,11 +357,11 @@ GTEST_TEST(blas, tensor_silu) {
 GTEST_TEST(blas, tensor_add_f32) {
     constexpr float x1 {1.0f}, x2 {2.0f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
-    auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_add(compute_ctx{}, *r, *t1, *t2);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 + x2);
@@ -371,11 +371,11 @@ GTEST_TEST(blas, tensor_add_f32) {
 GTEST_TEST(blas, tensor_sub_f32) {
     constexpr float x1 {1.0f}, x2 {2.0f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
-    auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_sub(compute_ctx{}, *r, *t1, *t2);
     ASSERT_TRUE(r->shape() == t1->shape());
     for (const float x : r->buf()) {
@@ -386,11 +386,11 @@ GTEST_TEST(blas, tensor_sub_f32) {
 GTEST_TEST(blas, tensor_mul_f32) {
     constexpr float x1 {1.0f}, x2 {2.0f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
-    auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_mul(compute_ctx{}, *r, *t1, *t2);
     ASSERT_TRUE(r->shape() == t1->shape());
     for (const float x : r->buf()) {
@@ -401,11 +401,11 @@ GTEST_TEST(blas, tensor_mul_f32) {
 GTEST_TEST(blas, tensor_div_f32) {
     constexpr float x1 {1.0f}, x2 {2.0f};
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
-    auto* t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4*4, 4*9, 8*2, 2})};
+    pool_ref<tensor> t2 {tensor::create(&ctx, {4*4, 4*8, 8*2, 2})};
     t1->fill(x1);
     t2->fill(x2);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_div(compute_ctx{}, *r, *t1, *t2);
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 / x2);
@@ -438,11 +438,11 @@ static constexpr std::array<float, 4*4> matrix_c {
 
 GTEST_TEST(blas, tensor_sgemm_f32) {
     context ctx {};
-    auto* t1 {tensor::create(&ctx, {4, 4})};
-    auto* t2 {tensor::create(&ctx, {4, 4})};
+    pool_ref<tensor> t1 {tensor::create(&ctx, {4, 4})};
+    pool_ref<tensor> t2 {tensor::create(&ctx, {4, 4})};
     t1->populate(matrix_a);
     t2->populate(matrix_b);
-    auto* r {t1->isomorphic_clone()};
+    pool_ref<tensor> r {t1->isomorphic_clone()};
     t_matmul(compute_ctx{}, *r, *t1, *t2);
     for (std::size_t i {}; i < matrix_c.size(); ++i) {
         ASSERT_FLOAT_EQ(r->buf()[i], matrix_c[i]);

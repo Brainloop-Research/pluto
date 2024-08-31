@@ -23,10 +23,10 @@ namespace pluto {
         auto operator=(tensor&&) -> tensor& = delete;
         ~tensor() = default;
 
-        [[nodiscard]] static auto create(context* ctx, std::span<const dim> dims) noexcept -> tensor*;
-        [[nodiscard]] static auto create(context* ctx, std::initializer_list<const dim> dims) noexcept -> tensor*;
-        [[nodiscard]] auto isomorphic_clone() const -> tensor*;
-        [[nodiscard]] auto deep_clone() const -> tensor*;
+        [[nodiscard]] static auto create(context* ctx, std::span<const dim> dims) noexcept -> pool_ref<tensor>;
+        [[nodiscard]] static auto create(context* ctx, std::initializer_list<const dim> dims) noexcept -> pool_ref<tensor>;
+        [[nodiscard]] auto isomorphic_clone() const -> pool_ref<tensor>;
+        [[nodiscard]] auto deep_clone() const -> pool_ref<tensor>;
         [[nodiscard]] auto ctx() const noexcept -> context* { return m_ctx; }
         [[nodiscard]] auto buf() const noexcept -> std::span<float> { return m_buf; }
         [[nodiscard]] auto shape() noexcept -> struct tensor_shape<float>& { return m_shape; }
@@ -35,10 +35,11 @@ namespace pluto {
         auto fill(float val) noexcept -> void;
         auto populate(std::span<const float> values) noexcept -> void;
         auto fill_random(float min = -1.0f, float max = 1.0f) noexcept -> void;
-        [[nodiscard]] auto get_args() const noexcept -> std::span<tensor* const>;
+        [[nodiscard]] auto get_args() const noexcept -> std::span<const pool_ref<tensor>>;
+        [[nodiscard]] auto get_args() noexcept -> std::span<pool_ref<tensor>>;
         [[nodiscard]] auto get_op_code() const noexcept -> opcode;
         [[nodiscard]] auto is_leaf_node() const noexcept -> bool;
-        auto push_arg(tensor* t) -> void;
+        auto push_arg(pool_ref<tensor> t) -> void;
 
         template <typename F> requires std::is_invocable_r_v<float, F, dim>
         auto fill_fn(F&& f) noexcept(std::is_nothrow_invocable_r_v<float, F, dim>) -> void {
@@ -59,7 +60,7 @@ namespace pluto {
         context* m_ctx {}; // Context host
         std::span<float> m_buf {}; // Pointer to the data
         struct tensor_shape<float> m_shape {}; // Current shape
-        std::array<tensor*, max_args> m_args {}; // Arguments for the operation
+        std::array<pool_ref<tensor>, max_args> m_args {}; // Arguments for the operation
         std::size_t m_num_args {}; // Number of arguments
         opcode m_op {}; // Operation code
 

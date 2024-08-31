@@ -4,7 +4,7 @@
 
 TEST(tensor, tensor_new_1d) {
     context ctx {};
-    auto* t {tensor::create(&ctx, {10})};
+    pool_ref<tensor> t {tensor::create(&ctx, {10})};
     ASSERT_NE(t, nullptr);
     ASSERT_EQ(t->shape().rank(), 1);
     ASSERT_EQ(t->shape()[0], 10);
@@ -32,7 +32,7 @@ TEST(tensor, tensor_new_1d) {
 
 TEST(tensor, tensor_new_2d) {
     context ctx {};
-    auto* t {tensor::create(&ctx, {4, 4})};
+    pool_ref<tensor> t {tensor::create(&ctx, {4, 4})};
     ASSERT_NE(t, nullptr);
     ASSERT_EQ(t->shape().rank(), 2);
     ASSERT_EQ(t->shape()[0], 4);
@@ -60,7 +60,7 @@ TEST(tensor, tensor_new_2d) {
 
 TEST(tensor, tensor_new_3d) {
     context ctx {};
-    auto* t {tensor::create(&ctx, {4, 4, 8})};
+    pool_ref<tensor> t {tensor::create(&ctx, {4, 4, 8})};
     ASSERT_NE(t, nullptr);
     ASSERT_EQ(t->shape().rank(), 3);
     ASSERT_EQ(t->shape()[0], 4);
@@ -88,7 +88,7 @@ TEST(tensor, tensor_new_3d) {
 
 TEST(tensor, tensor_new_4d) {
     context ctx {};
-    auto* t {tensor::create(&ctx, {4, 4, 8, 2})};
+    pool_ref<tensor> t {tensor::create(&ctx, {4, 4, 8, 2})};
     ASSERT_NE(t, nullptr);
     ASSERT_EQ(t->shape().rank(), 4);
     ASSERT_EQ(t->shape()[0], 4);
@@ -116,7 +116,7 @@ TEST(tensor, tensor_new_4d) {
 
 TEST(tensor, tensor_fill) {
     context ctx {};
-    auto* t {tensor::create(&ctx, {4, 4, 8, 2})};
+    pool_ref<tensor> t {tensor::create(&ctx, {4, 4, 8, 2})};
     t->fill(-0.5f);
     for (const float x : t->buf()) {
         ASSERT_FLOAT_EQ(x, -0.5f);
@@ -125,7 +125,7 @@ TEST(tensor, tensor_fill) {
 
 TEST(tensor, tensor_fill_fn) {
     context ctx {};
-    auto* t {tensor::create(&ctx, {4, 4, 8, 2})};
+    pool_ref<tensor> t {tensor::create(&ctx, {4, 4, 8, 2})};
     t->fill_fn([](dim) { return -1.5f; });
     for (const float x : t->buf()) {
         ASSERT_FLOAT_EQ(x, -1.5f);
@@ -134,9 +134,9 @@ TEST(tensor, tensor_fill_fn) {
 
 TEST(tensor, tensor_isomorphic) {
     context ctx {};
-    auto* origin {tensor::create(&ctx, {4, 4, 8, 2})};
+    pool_ref<tensor> origin {tensor::create(&ctx, {4, 4, 8, 2})};
     origin->fill(-0.5f);
-    auto* t {origin->isomorphic_clone()};
+    pool_ref<tensor> t {origin->isomorphic_clone()};
     ASSERT_NE(t, nullptr);
     ASSERT_EQ(t->shape().rank(), 4);
     ASSERT_EQ(t->shape()[0], 4);
@@ -155,9 +155,9 @@ TEST(tensor, tensor_isomorphic) {
 
 TEST(tensor, tensor_clone) {
     context ctx {};
-    auto* origin {tensor::create(&ctx, {4, 4, 8, 2})};
+    pool_ref<tensor> origin {tensor::create(&ctx, {4, 4, 8, 2})};
     origin->fill(-0.5f);
-    auto* t {origin->deep_clone()};
+    pool_ref<tensor> t {origin->deep_clone()};
     ASSERT_NE(t, nullptr);
     ASSERT_EQ(t->shape().rank(), 4);
     ASSERT_EQ(t->shape()[0], 4);

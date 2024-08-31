@@ -47,27 +47,27 @@ namespace pluto {
     static constexpr auto graph_visit(tensor* const root, F&& f, Args&&... arr) noexcept(std::is_nothrow_invocable_v<F, tensor*, Args...>) -> bool {
         if (!root) [[unlikely]] return false;
         if (root->is_leaf_node()) return true;
-        const std::span<tensor* const> args {root->get_args()};
+        const std::span<pool_ref<tensor>> args {root->get_args()};
         for (std::size_t i {}, k; i < args.size(); ++i) {
             if constexpr (Ord == graph_eval_order::left_to_right) { k = i; }
             else { k = args.size()-i-1; }
-            if (!graph_visit<Ord>(args[k], std::forward<F>(f), std::forward<Args>(arr)...)) [[unlikely]]
+            if (!graph_visit<Ord>(&*args[k], std::forward<F>(f), std::forward<Args>(arr)...)) [[unlikely]]
                 return false;
         }
         return std::invoke(std::forward<F>(f), root, std::forward<Args>(arr)...);
     }
 
-    auto backend_interface::verify(const compute_ctx& ctx, tensor* const root, const graph_eval_order order) -> bool {
+    auto backend_interface::verify(const compute_ctx& ctx, pool_ref<tensor> root, const graph_eval_order order) -> bool {
         const auto verifyer {[&](const tensor* const t) -> bool {
             const auto opc = static_cast<std::size_t>(t->get_op_code());
             return (this->*m_verify_dispatch_table[opc])(ctx, t);
         }};
         return order == graph_eval_order::left_to_right
-           ? graph_visit<graph_eval_order::left_to_right>(root, verifyer)
-           : graph_visit<graph_eval_order::right_to_left>(root, verifyer);
+           ? graph_visit<graph_eval_order::left_to_right>(&*root, verifyer)
+           : graph_visit<graph_eval_order::right_to_left>(&*root, verifyer);
     }
 
-    auto backend_interface::compute(const compute_ctx& ctx, tensor* const root, const graph_eval_order order) -> tensor* {
+    auto backend_interface::compute(const compute_ctx& ctx, pool_ref<tensor> root, const graph_eval_order order) -> pool_ref<tensor> {
         const auto evaluator {[&](tensor* const r) -> bool {
             const auto opc = static_cast<std::size_t>(r->get_op_code());
             (this->*m_eval_dispatch_table[opc])(ctx, r);
@@ -75,8 +75,8 @@ namespace pluto {
         }};
         const bool result {
             order == graph_eval_order::left_to_right
-            ? graph_visit<graph_eval_order::left_to_right>(root, evaluator)
-            : graph_visit<graph_eval_order::right_to_left>(root, evaluator)
+            ? graph_visit<graph_eval_order::left_to_right>(&*root, evaluator)
+            : graph_visit<graph_eval_order::right_to_left>(&*root, evaluator)
         };
         assert(result);
         return root;
@@ -94,7 +94,7 @@ namespace pluto {
     ) noexcept -> bool {
         verify_expr(node != nullptr);
         verify_expr(node->get_args().size() == opcode_arg_counts[static_cast<std::size_t>(opc)]);
-        for (const tensor* const arg : node->get_args()) {
+        for (auto&& arg : node->get_args()) {
             verify_expr(arg != nullptr);
         }
         return true;

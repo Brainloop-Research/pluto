@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "backend.hpp"
+#include "pool_ref.hpp"
 
 // Configuration macros
 
@@ -73,12 +74,12 @@ namespace pluto {
             requires std::is_standard_layout_v<T>
                 && std::is_trivially_destructible_v<T>
                 && std::is_constructible_v<T, Args...>
-        [[nodiscard]] auto pool_alloc(Args&&... args) -> T* {
+        [[nodiscard]] auto pool_alloc(Args&&... args) -> pool_ref<T> {
             T* obj;
             if constexpr (alignof(T) <= alignof(std::max_align_t) && !(alignof(T) & (alignof(T)-1))) {
                 obj = static_cast<T*>(pool_alloc_raw(sizeof(T)));
             } else { obj = static_cast<T*>(pool_alloc_raw_aligned(sizeof(T), alignof(T))); }
-            return std::launder<T>(new(obj) T{std::forward<Args>(args)...});
+            return pool_ref<T> {std::launder<T>(new(obj) T{std::forward<Args>(args)...})};
         }
 
     private:

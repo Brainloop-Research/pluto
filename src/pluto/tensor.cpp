@@ -9,9 +9,9 @@
 #include <numeric>
 
 namespace pluto {
-    auto tensor::create(context* const ctx, const std::span<const dim> dims) noexcept -> tensor* {
+    auto tensor::create(context* const ctx, const std::span<const dim> dims) noexcept -> pool_ref<tensor> {
         assert(ctx != nullptr);
-        auto* const t {ctx->pool_alloc<tensor>()}; // Allocate memory for the tensor
+        pool_ref<tensor> t {ctx->pool_alloc<tensor>()}; // Allocate memory for the tensor
         t->m_ctx = ctx;
         constexpr dim scalar_size {sizeof(float)};
         dim size {static_cast<dim>(std::accumulate(dims.begin(), dims.end(), scalar_size, std::multiplies<>{}))};
@@ -22,16 +22,16 @@ namespace pluto {
         return t;
     }
 
-    auto tensor::create(context* ctx, const std::initializer_list<const dim> dims) noexcept -> tensor* {
+    auto tensor::create(context* ctx, const std::initializer_list<const dim> dims) noexcept -> pool_ref<tensor> {
         return create(ctx, std::span<const dim>{dims});
     }
 
-    auto tensor::isomorphic_clone() const -> tensor* {
+    auto tensor::isomorphic_clone() const -> pool_ref<tensor> {
         return create(m_ctx, static_cast<std::span<const dim>>(m_shape));
     }
 
-    auto tensor::deep_clone() const -> tensor* {
-        auto* const t {this->isomorphic_clone()};
+    auto tensor::deep_clone() const -> pool_ref<tensor> {
+        pool_ref<tensor> t {this->isomorphic_clone()};
         std::copy(m_buf.begin(), m_buf.end(), t->m_buf.begin());
         return t;
     }
@@ -45,13 +45,15 @@ namespace pluto {
         std::copy(values.begin(), values.end(), m_buf.begin());
     }
 
-    auto tensor::get_args() const noexcept -> std::span<tensor* const> { return {m_args.data(), m_num_args}; }
+    auto tensor::get_args() const noexcept -> std::span<const pool_ref<tensor>> { return {m_args.data(), m_num_args}; }
+
+    auto tensor::get_args() noexcept -> std::span<pool_ref<tensor>> { return {m_args.data(), m_num_args}; }
 
     auto tensor::get_op_code() const noexcept -> opcode { return m_op; }
 
     auto tensor::is_leaf_node() const noexcept -> bool { return m_op == opcode::nop; }
 
-    auto tensor::push_arg(tensor* const t) -> void {
+    auto tensor::push_arg(const pool_ref<tensor> t) -> void {
         assert(m_num_args < max_args);
         m_args[m_num_args++] = t;
     }
