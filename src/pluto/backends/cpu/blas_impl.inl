@@ -500,13 +500,13 @@ namespace pluto::backends::cpu::blas {
             const tensor& x,    // X = src 0
             V_OP&& v_op         // Vector OP
         ) noexcept -> void {
-            assert(x.is_shape_eq(&r));  // Debug only verification - ! must be checked by validation function, TODO: Check broadcasting OP
+            assert(r.shape() == x.shape());  // Debug only verification - ! must be checked by validation function, TODO: Check broadcasting OP
             auto* const b_r{reinterpret_cast<std::byte*>(r.buf().data())};                                            // Data base ptr
             const auto* const b_x{reinterpret_cast<const std::byte*>(x.buf().data())};                           // Data base ptr
-            const auto [x_s0, x_s1, x_s2, x_s3] {x.strides()};          // Strides of x
-            const auto [r_s0, r_s1, r_s2, r_s3] {r.strides()};          // Strides of r
-            const dim rc {r.row_count()};
-            const dim cc {r.col_count()};
+            const auto [x_s0, x_s1, x_s2, x_s3] {x.shape().strides()};          // Strides of x
+            const auto [r_s0, r_s1, r_s2, r_s3] {r.shape().strides()};          // Strides of r
+            const dim rc {r.shape().rows()};
+            const dim cc {r.shape().colums()};
             for (dim row {}; row < rc; ++row) {
                 std::invoke(
                     v_op,
@@ -530,23 +530,23 @@ namespace pluto::backends::cpu::blas {
             V_OP&& v_op,        // Vector OP
             S_OP&& s_op         // Scalar OP
         ) noexcept -> void {
-            assert(x.is_shape_eq(&r));  // Debug only verification - ! must be checked by validation function, TODO: Check broadcasting OP
+            assert(r.shape() == x.shape());  // Debug only verification - ! must be checked by validation function, TODO: Check broadcasting OP
             auto* const b_r{reinterpret_cast<std::byte*>(r.buf().data())};                    // Data base ptr
             const auto* const b_x{reinterpret_cast<const std::byte*>(x.buf().data())};   // Data base ptr
             const auto* const b_y{reinterpret_cast<const std::byte*>(y.buf().data())};   // Data base ptr
-            const auto [x_d0, x_d1, x_d2, x_d3] {x.shape()};   // Dimensions of x
-            const auto [x_s0, x_s1, x_s2, x_s3] {x.strides()}; // Strides of x
-            const auto [y_d0, y_d1, y_d2, y_d3] {y.shape()};   // Dimensions of y
-            const auto [y_s0, y_s1, y_s2, y_s3] {y.strides()}; // Strides of y
-            const auto [r_d0, r_d1, r_d2, r_d3] {r.shape()};   // Dimensions of r
-            const auto [r_s0, r_s1, r_s2, r_s3] {r.strides()}; // Strides of r
-            const dim rc {r.row_count()};                                   // Row count (number of columns in first dim): r.dims()[0]
+            const auto [x_d0, x_d1, x_d2, x_d3] {x.shape().dims()};   // Dimensions of x
+            const auto [x_s0, x_s1, x_s2, x_s3] {x.shape().strides()}; // Strides of x
+            const auto [y_d0, y_d1, y_d2, y_d3] {y.shape().dims()};   // Dimensions of y
+            const auto [y_s0, y_s1, y_s2, y_s3] {y.shape().strides()}; // Strides of y
+            const auto [r_d0, r_d1, r_d2, r_d3] {r.shape().dims()};   // Dimensions of r
+            const auto [r_s0, r_s1, r_s2, r_s3] {r.shape().strides()}; // Strides of r
+            const dim rc {r.shape().rows()};                                   // Row count (number of columns in first dim): r.dims()[0]
             const dim tidx {ctx.thread_idx};                                // Current thread index
             const dim tc {ctx.num_threads};                                 // Current thread count
             const dim rpt {(rc + tc - 1)/tc};                               // Rows per thread
             const dim row_start {rpt * tidx};                               // Current thread row interval start
             const dim row_end {std::min(row_start + rpt, rc)};              // Current thread row interval end
-            if (sizeof(T) == y.strides().front()) {                         // Fast path - dense kernel for contiguous layout
+            if (y.shape().is_contiguous<T>()) {                         // Fast path - dense kernel for contiguous layout
                 for (dim row_i {row_start}; row_i < row_end; ++row_i) {     // For each row
                     const dim x_i3 {row_i / (x_d2*x_d1)};                   // Dimension 3 - Linear to multidim index
                     const dim x_i2 {(row_i - x_i3*x_d2*x_d1)/x_d1};         // Dimension 2 - Linear to multidim index
@@ -602,15 +602,15 @@ namespace pluto::backends::cpu::blas {
             const tensor& x,
             const tensor& y
         ) noexcept -> void {
-            assert(x.is_matmul_compatible(&y));
+            assert(x.shape().is_matmul_compatible(y.shape()));
             auto* const b_r {reinterpret_cast<std::byte*>(r.buf().data())};
             const auto* const b_x {reinterpret_cast<const std::byte*>(r.buf().data())};
             const auto* const b_y {reinterpret_cast<const std::byte*>(r.buf().data())};
-            const auto [x_d0, x_d1, x_d2, x_d3] {x.shape()};
-            const auto [x_s0, x_s1, x_s2, x_s3] {x.strides()};
-            const auto [y_s0, y_s1, y_s2, y_s3] {y.strides()};
-            const auto [r_d0, r_d1, r_d2, r_d3] {r.shape()};
-            const auto [r_s0, r_s1, r_s2, r_s3] {r.strides()};
+            const auto [x_d0, x_d1, x_d2, x_d3] {x.shape().dims()};
+            const auto [x_s0, x_s1, x_s2, x_s3] {x.shape().strides()};
+            const auto [y_s0, y_s1, y_s2, y_s3] {y.shape().strides()};
+            const auto [r_d0, r_d1, r_d2, r_d3] {r.shape().dims()};
+            const auto [r_s0, r_s1, r_s2, r_s3] {r.shape().strides()};
             for (dim i3 {}; i3 < r_d3; ++i3) {
                 for (dim i2 {}; i2 < r_d2; ++i2) {
                     for (dim i1 {}; i1 < r_d1; ++i1) {

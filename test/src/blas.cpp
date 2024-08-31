@@ -278,7 +278,7 @@ GTEST_TEST(blas, tensor_softmax) {
     t1->fill(x1);
     auto* r {t1->isomorphic_clone()};
     t_softmax(compute_ctx{}, *r, *t1);
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    ASSERT_TRUE(r->shape() == t1->shape());
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
     }
@@ -293,7 +293,7 @@ GTEST_TEST(blas, tensor_sigmoid) {
     t1->fill(x1);
     auto* r {t1->isomorphic_clone()};
     t_sigmoid(compute_ctx{}, *r, *t1);
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    ASSERT_TRUE(r->shape() == t1->shape());
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, r1);
     }
@@ -377,7 +377,7 @@ GTEST_TEST(blas, tensor_sub_f32) {
     t2->fill(x2);
     auto* r {t1->isomorphic_clone()};
     t_sub(compute_ctx{}, *r, *t1, *t2);
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    ASSERT_TRUE(r->shape() == t1->shape());
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 - x2);
     }
@@ -392,7 +392,7 @@ GTEST_TEST(blas, tensor_mul_f32) {
     t2->fill(x2);
     auto* r {t1->isomorphic_clone()};
     t_mul(compute_ctx{}, *r, *t1, *t2);
-    ASSERT_TRUE(r->is_shape_eq(t1));
+    ASSERT_TRUE(r->shape() == t1->shape());
     for (const float x : r->buf()) {
         ASSERT_FLOAT_EQ(x, x1 * x2);
     }
