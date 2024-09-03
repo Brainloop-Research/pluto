@@ -80,7 +80,7 @@ namespace pluto::backends::cpu::blas {
     }
 
     auto v_cvt_f16_to_f32(const dim n, float* const o, const f16* const x) noexcept -> void {
-        if (n == 0) return;
+        if (n == 0) [[unlikely]] return;
         if (n == 1) {
             *o = s_cvt_f16_to_f32(*x);
             return;
@@ -159,7 +159,7 @@ namespace pluto::backends::cpu::blas {
     }
 
     auto v_cvt_bf16_to_f32(const dim n, float* const o, const bf16* const x) noexcept -> void {
-        if (n == 0) return;
+        if (n == 0) [[unlikely]] return;
         if (n == 1) {
             *o = s_cvt_bf16_to_f32(*x);
             return;
@@ -213,7 +213,7 @@ namespace pluto::backends::cpu::blas {
     }
 
     auto v_cvt_f32_to_bf16(const dim n, bf16* const o, const float* const x) noexcept -> void {
-        if (n == 0) return;
+        if (n == 0) [[unlikely]] return;
         if (n == 1) {
             *o = s_cvt_f32_to_bf16(*x);
             return;
